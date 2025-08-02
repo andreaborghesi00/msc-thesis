@@ -1,0 +1,31 @@
+\usepackage{pdfpages}
+\usepackage{lscape}
+
+\usepackage{url}
+
+%FORMATTING
+% \usepackage[skip=0.1pt\baselineskip, indent=3pt]{parskip}
+\setlength{\parindent}{7pt}                   % no indent
+\setlength{\parskip}{0\baselineskip}
+
+\usepackage{geometry}
+% \setlength{\marginparwidth}{0pt}
+\geometry{bindingoffset=2cm}
+
+%INTERNAL REFERENCES
+\usepackage{hyperref}
+\hypersetup{
+	colorlinks=true,
+	citecolor=black!60,
+	linkcolor=black!80,
+	filecolor=black,
+	urlcolor=black!80
+}
+
+\usepackage[capitalise]{cleveref}
+\usepackage{subcaption}
+\renewcommand{\thefigure}{\arabic{figure}} % figure numbering does not depend on chapter
+
+%TABLES
+\usepackage{booktabs}
+
