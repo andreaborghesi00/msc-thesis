@@ -22,6 +22,19 @@
 	urlcolor=black!80
 }
 
+% DISABLE WHITE PAGE NUMBERING
+\renewcommand{\cleardoublepage}{
+  \clearpage
+  \if@twoside
+    \ifodd\c@page
+    \else
+      \thispagestyle{empty}
+      \hbox{}
+      \newpage
+    \fi
+  \fi
+}
+
 \usepackage[capitalise]{cleveref}
 \usepackage{subcaption}
 \renewcommand{\thefigure}{\arabic{figure}} % figure numbering does not depend on chapter
