@@ -1,1 +1,12 @@
 \chapter{Data and Preprocessing}
+\section{Datasets: NLST and DLCSD24}
+Briefly describe the datasets and their characteristics. mention that one does not have benign annotations, while the other does, nonetheless the first one can be yet used to train a detection model (as long as it detects nodules, regardless of their malignancy). regardless, we might also use the first one as a pretrain for the second one.
+
+\section{Preprocessing Pipeline}
+Resampling, and HU clipping, explaining why we're clipping and why those ranges and not others, this is supported by the HU table.
+
+\section{Slice Selection Algorithms}
+Explain the need for slice selection algorithms in this 2D setting, as some might not contain relevan information (nodule mass). explain the statistical approach, the sliding window approach and finally the simple thresholding approach.
+
+\section{Data Augmentation Techniques}
+Discuss the data augmentation techniques used to enhance model robustness, such as random rotations, flips, and intensity variations. Explain how these techniques help mitigate overfitting and improve generalization to unseen data.

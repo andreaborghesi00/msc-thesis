@@ -24,7 +24,35 @@ Equally critical, yet often overlooked in the technical literature, is the chall
 This structural difference creates significant technical obstacles for applying standard explainability techniques.
 
 \section{Research Questions and Objectives}
+The challenges outlined in the previous section give rise to three primary research questions that guide this thesis:
 
-\section{Thesis Contributions}
+\paragraph{RQ1: How can 2D object detection approaches achieve clinically relevant performance for lung nodule detection within computational constraints?}
+This question addresses the fundamental trade-off between computational efficiency and detection performance. While 3D approaches theoretically offer superior performance by exploiting volumetric context, their computational demands make them impractical for many research and deployment scenarios. We investigate whether 2D slice-based detection can achieve acceptable performance levels while operating within the memory and processing constraints of standard hardware configurations.
+
+\paragraph{RQ2: How can explainability techniques be adapted for the structured outputs of object detection models?}
+Standard explainability techniques are designed for classification tasks with single prediction scores, but object detection produces complex structured outputs with multiple bounding boxes, confidence scores, and non-differentiable post-processing steps. This question explores how gradient-free Class Activation Map (CAM) methods can be modified to generate meaningful explanations for object detection predictions, addressing the technical challenges posed by structured outputs and non-differentiable operations.\bigskip
+
+To address these research questions, this thesis pursues the following specific objectives:
+\paragraph{O1: Develop a computationally efficient 2D object detection pipeline for lung nodule detection}
+Implement and compare multiple object detection architectures and their variants.
+Design preprocessing pipelines optimized for 2D slice-based analysis, including slice selection algorithms to maximize information content
+Achieve detection performance that demonstrates clinical viability while operating within $<$6GB GPU memory constraints
+
+\paragraph{O2: Adapt CAM methods for object detection tasks}
+
+Research and adapt CAM methods that can handle structured object detection outputs
+Implement comparison algorithms that can assess similarity between structured predictions for explainability evaluation
+Implement end-to-end explainable object detection pipeline that provides both predictions and corresponding explanation maps
+
+\paragraph{O3: Demonstrate integration of detection and classification with explainability}
+
+Extend the object detection pipeline with a classification head for detected regions
+Apply explainability methods to both detection and classification components
+Evaluate the clinical utility of multi-stage explainable predictions
+
+\paragraph{O4: Provide comprehensive experimental validation}
+Evaluate the complete system on the established medical imaging datasets NLST \cite{nlst_data}, DLCSD24 \cite{tushar2025ailunghealthbenchmarking}.
+Compare performance against relevant baselines and alternative approaches
+Analyze computational efficiency and practical deployment considerations
 
 \section{Thesis Structure}

@@ -1,1 +1,29 @@
-\chapter{Background}
+\chapter{Object Detection}
+\label{ch:object-detection}
+\section{Fundamentals of Object Detection}
+What's object detection? Describe the task itself, how it differs from  classification and other computer vision tasks. What are the usual approaches in the deep learning context (one-stage vs two-stage, anchor-based vs anchor-free, etc.)? What are the most common architectures and their characteristics? 
+highlight problems related to their structured outputs and the inherited challenges for gradient backpropagation 
+
+\subsection{RetinaNet}
+a one-stage anchor-based architecture, essentially a toned-down Faster R-CNN, this is why i'd describe it first
+Describe the its architecture and components, address that it is born to address the class imbalance problem with the Focal Loss introduction, and its intended for medical imaging applications
+
+\subsection{Faster R-CNN}
+two-stage anchor-based architecture, the most common one and the one that is used in most of the literature.
+Describe its components, RPN, RoI pooling etc., it is the culmination of the R-CNN family of architecutres.
+
+\subsection{YOLOv8}
+one-stage anchor-free architecture (from v8 onwards), the most common one-stage architecture in literature, mostly for its inference speeds. its objectives were to reach real-time inference speeds while maintaining an acceptable accuracy.
+
+\subsection{Evaluation Metrics: Average Precision and Average Recall}
+Explain the need to formally define evaluation metrics as COCO's definitions are shaky, seems like everyone's using them but no one ever explains them.
+
+\section{Explainability in Deep Learning}
+Quick introduction of explainability in deep learning, highlighting how models are essentially black boxes and the need to understand, although partially, their inner workings. This need is even more pronounced in the medical field, where explainability is a requirement for clinical acceptance and regulatory compliance. Highlight how explainability methods, especially the ones that we are going to cover, are desinged to provide \emph{insights} into the model's decision-making process, it does not make it fully explainable, but rather makes it a gray-box model, which is still better than a black box.
+Trainsition to CAMs for computer vision tasks
+
+\subsection{Class Activation Maps (CAM)}
+What are CAMs, how they work, and their (usual) limitations. Describe GradCAM as a gradient-based method and then explain why it is problematic for object detection tasks due to their sensitivity to the structured outputs and the non-differentiable post-processing steps. 
+
+\subsection{Adaptations for Object Detection}
+Discuss gradient-free CAM methods ScoreCAM, SS-CAM and EigenCAM, highlighting how they can be adapted to work with object detection outputs. there's a bit of math involved here as we got to pinpoint what fails in their original implementations and how we can fix it.
