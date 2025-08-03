@@ -15,6 +15,9 @@ Describe its components, RPN, RoI pooling etc., it is the culmination of the R-C
 \subsection{YOLOv8}
 one-stage anchor-free architecture (from v8 onwards), the most common one-stage architecture in literature, mostly for its inference speeds. its objectives were to reach real-time inference speeds while maintaining an acceptable accuracy.
 
+\subsection{DETR}
+a one-stage anchor-free architecture, the first to introduce the transformer architecture in object detection, it is a fully end-to-end architecture that does not rely on anchors or region proposals, but rather directly predicts the bounding boxes and class labels in a single pass. Unfortunately, it is not suitable for our use case due to its large needs of data.
+
 \subsection{Evaluation Metrics: Average Precision and Average Recall}
 Explain the need to formally define evaluation metrics as COCO's definitions are shaky, seems like everyone's using them but no one ever explains them.
 
