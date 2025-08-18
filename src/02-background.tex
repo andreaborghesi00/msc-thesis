@@ -51,7 +51,7 @@ Objects appear at widely varying scales, early CNN backbone layers produce high-
 FPNs fuse these to obtain semantically strong, multi-scale feature maps at multiple resolutions, enabling detectors to handle small and large objects efficiently with a single backbone pass (as opposed to costly image pyramids)~\cite{lin2017fpn}.\\
 
 Let $\{C_2,C_3,C_4,C_5\}$ be backbone feature maps with strides $\{4,8,16,32\}$ w.r.t.\ the input.
-FPN builds $\{P_2,P_3,P_4,P_5\}$ by a top–down pathway and lateral merges as shown in Figure~\ref{fig:fpn-lateral}:
+FPN builds $\{P_2,P_3,P_4,P_5\}$ by a top–down pathway and lateral merges as shown in Figure~\ref{fig:fpn-lateral}.
 
 \input{figures/fpn-lateral}
 
@@ -201,7 +201,8 @@ Two subnetworks are applied at each level of the pyramid, producing per-anchor o
 Once we obtain the structured outputs from the network, we apply the post-processing steps discussed 
 in Section~\ref{sec:anchor_based_detectors} to discard redundant detections.
 
-\paragraph{Losses.}
+\paragraph{Focal Loss.}
+
 As previously mentioned, RetinaNet introduced the \emph{focal loss} to address the extreme class imbalance in dense predictions.
 It essentially down-weights easy to classify examples and focuses training on hard negatives (Figure~\ref{fig:focal-loss}), which is particularly useful in medical imaging where the background class can dominate the training set. To do so it adds a modulating factor $(1-p_t)^\gamma$ to the cross-entropy loss, with a focus parameter $\gamma$. The focal loss is hence defined as follows:
 
@@ -211,13 +212,52 @@ $$
 with typical $\alpha{=}0.25$, $\gamma{=}2$.\\
 \input{figures/focal-loss.tex}
 
-
-Box regression is optimized for positives only, commonly with Smooth-$L_1$ on $(\hat{t}-t)$; IoU-family losses are also used in variants.
-
-
 \section{Faster R-CNN}
-two-stage anchor-based architecture, the most common one and the one that is used in most of the literature.
-Describe its components, RPN, RoI pooling etc., it is the culmination of the R-CNN family of architecutres.
+% two-stage anchor-based architecture, the most common one and the one that is used in most of the literature.
+% Describe its components, RPN, RoI pooling etc., it is the culmination of the R-CNN family of architecutres.
+% f
+
+Faster R-CNN is a two-stage, anchor-based detector that couples a Region Proposal Network (RPN) with a per-region classifier and regressor~\cite{ren2016fasterrcnn}. A shared backbone (we consider one using FPN) feeds both stages.
+
+\input{figures/fasterrcnn.tex}
+
+\subsubsection{Region Proposal Network (RPN).}
+At each feature-map location and for $A$ anchors $a_k=(x_a,y_a,w_a,h_a)$, the RPN predicts:
+\begin{itemize}
+    \item objectness logits $\hat{o}_k$ (binary);
+    \item box deltas $\hat{t}_k=(\hat{t}_x,\hat{t}_y,\hat{t}_w,\hat{t}_h)$.
+\end{itemize}
+At this stage we do not have any class information, but rather we unify all classes into a single \emph{object} against a \emph{background} class, hence the binary classification. We call \emph{objectness} the probability that an anchor contains an object, regardless of its initial class. Such probability is typically obtained by applying a sigmoid activation to the logits $\hat{o}_k$.\\
+Anchors are assigned to ground-truth boxes by IoU thresholds: positives $\mathcal{A}^+$, negatives $\mathcal{A}^-$, ignored $\mathcal{A}^0$. Positives receive class $1$ and regression targets $t_k$ (standard parameterization),
+$$
+t_x=\frac{x^\ast-x_a}{w_a},\quad
+t_y=\frac{y^\ast-y_a}{h_a},\quad
+t_w=\log\frac{w^\ast}{w_a},\quad
+t_h=\log\frac{h^\ast}{h_a}.
+$$
+
+At the end of the RPN, we filter the proposals by objectness score $\hat{o}_k$ and apply non-maximum suppression (NMS) to obtain a sparse set of proposals $\mathcal{P}$, which are then passed to the second stage.\\
+
+We notice how the RPN is a fully convolutional network, therefore the size of input has not to be fixed, although it will increase the number of anchors and thus the computational cost.
+
+\paragraph{Second-stage head.}
+The second stage process starts with RoIAlign, a procedure that pools features from the shared backbone for each proposal into a fixed-size tensor $F_j$ (e.g., $7{\times}7{\times}C$) without quantization errors \cite{he2018maskrcnn}. This is done by bilinear interpolation of the feature maps at the proposal locations, which avoids the quantization issues that arise with max pooling, that was a common issue in the original R-CNN architectures using RoIPooling instead.
+
+A per-RoI head predicts:
+\begin{itemize}
+    \item class logits $\hat{z}_{j,c}$ for $c\in\{1,\dots,K\}$ (softmax over $K{+}1$ including background);
+    \item refined box deltas $\hat{u}_{j,c}$ (class-specific) or $\hat{u}_j$ (class-agnostic).
+\end{itemize}
+With labels $(y_j^\ast, u_j^\ast)$ from matching $p_j$ to ground truth, the loss is
+$$
+\mathcal{L}_{\text{RoI}}
+=\frac{1}{N_{\text{roi}}}\sum_{j}\ell_{\text{ce}}(\hat{z}_{j},y_j^\ast)
++\lambda_{\text{roi}}\frac{1}{N_{\text{pos}}}\sum_{j\in\mathcal{P}^+}\ell_{\text{reg}}(\hat{u}_{j,(y_j^\ast)},u_j^\ast),
+$$
+where regression applies only to positives $\mathcal{P}^+$.\\
+
+Training of Faster R-CNN is performed end-to-end, with both the RPN and the second-stage detection head sharing the same backbone features. To keep the optimization stable, a sampling strategy is used at both stages to balance the large number of negative examples against the relatively few positives: mini-batches are constructed with a fixed foreground-background ratio for anchors in the RPN and for RoIs in the second stage. The assignment of positives and negatives relies on IoU thresholds -- for the RPN, anchors above a high threshold are treated as positives and those below a low threshold as negatives, while intermediate cases may be ignored; for the RoI head, proposals with sufficiently high IoU to a ground-truth box are considered foreground, and the rest background. During backpropagation, gradients propagate through the RoIAlign operation and further into the shared backbone, but not through the non-differentiable proposal selection and NMS steps, which are treated as fixed post-processing operations. Instead we backpropagate through the pre-NMS detections, with analogous loss functions as the ones used in the RoI heads that uses the notion of objectness and anchor's coordinates, allowing the model to learn to produce better proposals and detections.
+
 
 % \subsection{DETR}
 % a one-stage anchor-free architecture, the first to introduce the transformer architecture in object detection, it is a fully end-to-end architecture that does not rely on anchors or region proposals, but rather directly predicts the bounding boxes and class labels in a single pass. Unfortunately, it is not suitable for our use case due to its large needs of data.
