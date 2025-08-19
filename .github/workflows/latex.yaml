@@ -1,8 +1,8 @@
 name: Deploy PDF
 
 env:
-  MAIN_FILE: "main_file_name"
-  RBODY: "The release body of the file"
+  MAIN_FILE: "main"
+  RBODY: "Latest version of the lecture notes"
 
 on:
   push:
@@ -19,7 +19,7 @@ jobs:
       - name: Build
         uses: xu-cheng/latex-action@v2
         with:
-          root_file: "$MAIN_FILE.tex"
+          root_file: "${{ env.MAIN_FILE }}.tex"
       - name: Get short commit hash
         run: |
           echo "SHORT_HASH=$(git rev-parse --short HEAD)" >> "$GITHUB_ENV"
@@ -35,5 +35,5 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           tag_name: "v${{ env.SHORT_HASH }}"
-          files: "$MAIN_FILE.pdf"
-          body: $RBODY
+          files: "${{ env.MAIN_FILE }}.pdf"
+          body: ${{ env.RBODY }}
