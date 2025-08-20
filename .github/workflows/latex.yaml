@@ -1,7 +1,7 @@
 name: Deploy PDF
 
 env:
-  MAIN_FILE: "main"
+  MAIN_FILE: "thesis"
   RBODY: "Latest version of the lecture notes"
 
 on:
