@@ -1,17 +1,17 @@
 \begin{table}[h]
     \centering
+    \begin{tabular}{lccc}
+        \hline
+        \textbf{Model} & \textbf{mAP@10} & \textbf{mAP@50} & \textbf{mAP@[5:95]} \\
+        \hline
+        RetinaNet ENv2s      & 0.950 & 0.756 & 0.577 \\
+        RetinaNet MobileNet  & 0.935 & 0.720 & 0.560  \\
+        RetinaNet ResNet50   & 0.889 & 0.645 & 0.510  \\
+        FasterRCNN ENv2s     & 0.948 & 0.742 & 0.577  \\
+        FasterRCNN MobileNet & 0.908 & 0.725 & 0.559  \\
+        FasterRCNN ResNet50  & 0.891 & 0.742 & 0.546  \\
+        \hline
+    \end{tabular}
     \caption{Object detection performance on the NLST dataset of Faster R-CNN and RetinaNet architectures with different backbones pretrained on COCO.}
     \label{tab:nlst-models}
-    \begin{tabular}{lccc}
-    \hline
-    \textbf{Model} & \textbf{mAP@10} & \textbf{mAP@50} & \textbf{mAP@[.5:.95]} \\
-    \hline
-    RetinaNet MobileNet  & 0.935 & 0.720 & 0.560  \\
-    RetinaNet ENv2s      & 0.950 & 0.756 & 0.577 \\
-    RetinaNet ResNet50   & 0.889 & 0.645 & 0.510  \\
-    FasterRCNN ResNet50  & 0.891 & 0.742 & 0.546  \\
-    FasterRCNN MobileNet & 0.908 & 0.725 & 0.559  \\
-    FasterRCNN ENv2s     & 0.948 & 0.742 & 0.577  \\
-    \hline
-    \end{tabular}
 \end{table}
