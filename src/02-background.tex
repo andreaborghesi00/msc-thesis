@@ -263,14 +263,243 @@ Training of Faster R-CNN is performed end-to-end, with both the RPN and the seco
 % a one-stage anchor-free architecture, the first to introduce the transformer architecture in object detection, it is a fully end-to-end architecture that does not rely on anchors or region proposals, but rather directly predicts the bounding boxes and class labels in a single pass. Unfortunately, it is not suitable for our use case due to its large needs of data.
 
 \section{Evaluation Metrics: Average Precision and Average Recall}
-Explain the need to formally define evaluation metrics as COCO's definitions are shaky, seems like everyone's using them but no one ever explains them.
+\label{sec:eval_metrics}
+ 
+To quantitatively evaluate the performance of an object detection model, we rely on the standardized metrics established by the COCO challenge: Average Precision (AP) and Average Recall (AR). While the concepts of precision and recall are simple in classification tasks, their application to object detection is more nuanced.
 
-\section{Explainability in Deep Learning}
-Quick introduction of explainability in deep learning, highlighting how models are essentially black boxes and the need to understand, although partially, their inner workings. This need is even more pronounced in the medical field, where explainability is a requirement for clinical acceptance and regulatory compliance. Highlight how explainability methods, especially the ones that we are going to cover, are desinged to provide \emph{insights} into the model's decision-making process, it does not make it fully explainable, but rather makes it a gray-box model, which is still better than a black box.
-Trainsition to CAMs for computer vision tasks
+The core challenge lies in defining what constitutes a True Positive (TP), a False Positive (FP), and a False Negative (FN). A simple binary match is insufficient, as a prediction must be evaluated on both its class label and its spatial accuracy. Furthermore, unlike in classification, the concept of a True Negative is generally considered ill-defined in object detection, as it would represent the infinite number of correctly non-detected objects in the background.
+
+\subsubsection{The Matching Procedure}
+To formalize the definition of TP, FP, and FN, we must first define a matching procedure. Given an input image $I$, the model produces a structured output $O$ containing a set of predicted bounding boxes, $\mathcal{B}_{pred}$. This is compared against the structured ground truth label, $\ell$, which contains the set of ground truth boxes, $\mathcal{B}_{gt}$.
+
+The matching procedure, $\mathcal{M}_{\alpha}$, links predicted boxes to ground truth boxes based on a specific Intersection over Union (IoU) threshold, $\alpha$. This procedure, detailed in Algorithm \ref{alg:matching-procedure}, allows us to categorize each prediction.
+ 
+\begin{algorithm}
+    \caption{Matching Procedure for Object Detection}
+    \label{alg:matching-procedure}
+    \DontPrintSemicolon
+    \SetAlgoLined
+    \setstretch{1.2}
+
+    \SetKwInOut{Input}{Input}
+    \SetKwInOut{Output}{Output}
+    \Input{
+        $\mathcal{B}_{pred}$ (predicted boxes), 
+        $\mathcal{B}_{gt}$ (ground truth boxes), 
+        $\alpha$ (IoU threshold)
+    }
+    \Output{Counts for TP, FP, FN}
+
+    \BlankLine
+    
+    % \tcc{Initialization}
+    Initialize each $b_{gt}$ in $\mathcal{B}_{gt}$ as \texttt{unmatched}\;
+    Sort $\mathcal{B}_{pred}$ in descending order of confidence scores\;
+    TP $\gets 0$, FP $\gets 0$, FN $\gets 0$\;
+    
+    \BlankLine
+    
+    \ForAll(){$b_{pred}$ \textup{in sorted} $\mathcal{B}_{pred}$}{
+        Find $best\_b_{gt}$ such that:\;
+        \quad - $best\_b_{gt}$ is the box in $\mathcal{B}_{gt}$ with the highest IoU with $b_{pred}$\;
+        \quad - $best\_b_{gt}$ is currently \texttt{unmatched}\;
+        
+        \BlankLine
+        
+        \If{$best\_b_{gt}$ \textup{exists and IoU(}$b_{pred}, best\_b_{gt}$\textup{)} $> \alpha$}{
+            TP $\gets$ TP + 1\;
+            Mark $best\_b_{gt}$ as \texttt{matched}\;
+        }
+        \Else{
+            FP $\gets$ FP + 1\;
+        }
+    }
+    
+    \BlankLine
+    
+    \ForAll(){\textup{unmatched} $b_{gt}$ \textup{in} $\mathcal{B}_{gt}$}{
+        FN $\gets$ FN + 1\;
+    }
+
+    \Return{TP, FP, FN}\;
+
+\end{algorithm}With this procedure, for any given IoU threshold $\alpha$, we can now use the standard definitions of Precision and Recall:
+\begin{equation}
+    \text{Precision}(\alpha) = \frac{\text{TP}(\alpha)}{\text{TP}(\alpha) + \text{FP}(\alpha)}, \quad \text{Recall}(\alpha) = \frac{\text{TP}(\alpha)}{\text{TP}(\alpha) + \text{FN}(\alpha)}
+\end{equation}
+
+\subsubsection{Defining AP and AR}
+Before stating the definitions of AP and AR, it is important to note that these will slightly differ from the original COCO definitions, as in some cases COCO has not stated them formally, introducing some ambiguity.
+
+By varying the confidence score threshold for the predictions, we can trace a Precision-Recall (PR) curve for a fixed IoU threshold $\alpha$. Let this curve be described by the function $p(\alpha, r)$, where $r$ is the recall level.
+
+The Average Precision (AP) at a given IoU threshold $\alpha$ is defined as the area under this PR curve:
+\begin{equation}
+    \text{AP}@\alpha = \int_{0}^{1} p(\alpha, r) \,dr
+\end{equation}
+
+The Average Recall (AR) is defined differently. It is the maximum recall achieved given a fixed number of top-scoring detections per image, $k$. Let $r(\alpha, k)$ be the recall as a function of the IoU threshold and the number of predictions $k$. The AR is then:
+\begin{equation}
+    \text{AR}@\alpha = \max_{k \in \{1, 10, 100\}} r(\alpha, k)
+\end{equation}
+
+To provide a single, comprehensive metric for model performance, we can compute the AP and AR by averaging the values over a range of IoU thresholds. Let $S = \{0.05, 0.10, \dots, 0.95\}$. The final metrics are:
+\begin{equation}
+    \text{AP}@S = \frac{1}{|S|} \sum_{\alpha \in S} \text{AP}@\alpha
+\end{equation}
+\begin{equation}
+    \text{AR}@S = \frac{1}{|S|} \sum_{\alpha \in S} \text{AR}@\alpha
+\end{equation}
+An alternative and common notation for AP@S is AP@5:95. This multi-threshold evaluation ensures that the metric rewards models that are accurate across a wide spectrum of localization strictness.
+
+Finally, in order to take into consideration multiple classes, we can define the mean Average Precision (mAP) and mean Average Recall (mAR) as follows:
+\begin{equation}
+    \text{mAP}@\alpha = \frac{1}{K} \sum_{k=1}^{K} \text{AP}_k@\alpha
+\end{equation}
+\begin{equation}
+    \text{mAR}@\alpha = \frac{1}{K} \sum_{k=1}^{K} \text{AR}_k@\alpha
+\end{equation}
+where $K$ is the number of classes, and $\text{AP}_k$ and $\text{AR}_k$ are the AP and AR for class $k$, respectively. A similar definition can be applied to $\mathrm{mAP}@S$ and $\mathrm{mAR}@S$.
+
+
+\section{XAI for Deep Learning in Computer Vision Tasks}
+The impressive performance of deep learning models in numerous fields -- including medical imaging -- is often accompanied by a significant challenge: their ``black box'' nature \cite{chaddad2023survey, singh2025beyond}. These models, composed of millions of parameters, learn complex hierarchical features from data, but their decision-making processes are not inherently transparent \cite{moradi2024model}. In high-stakes fields like clinical diagnostics, where a model's conclusion could influence patient care, this lack of transparency is a major barrier to adoption and trust \cite{chaddad2023survey,glikson2020human}. Clinicians and regulatory bodies require assurance that a model is not only accurate but also bases its predictions on clinically relevant features, rather than confounding artifacts in the data \cite{kingma2017adam}.
+Explainable AI (XAI) is a field dedicated to developing methods that render these complex models more understandable to humans.\cite{chaddad2023survey,kinger2024review}. The goal is to provide insights into the model's decision-making process, making it a ``gray-box'' model, which, while not fully transparent, offers an important insight into its reasoning. For computer vision tasks, one of the most intuitive and powerful families of XAI techniques is Class Activation Maps (CAM) \cite{minh2023overview}.
+
+%Quick introduction of explainability in deep learning, highlighting how models are essentially black boxes and the need to understand, although partially, their inner workings. This need is even more pronounced in the medical field, where explainability is a requirement for clinical acceptance and regulatory compliance. Highlight how explainability methods, especially the ones that we are going to cover, are desinged to provide \emph{insights} into the model's decision-making process, it does not make it fully explainable, but rather makes it a gray-box model, which is still better than a black box.
+% Trainsition to CAMs for computer vision tasks
 
 \subsection{Class Activation Maps (CAM)}
-What are CAMs, how they work, and their (usual) limitations. Describe GradCAM as a gradient-based method and then explain why it is problematic for object detection tasks due to their sensitivity to the structured outputs and the non-differentiable post-processing steps. 
+Class Activation Maps, or CAMs, are visualization techniques that produce heat\-maps to highlight the discriminative regions in an image that a model used to make a specific prediction \cite{minh2023overview}. In the context of lung nodule detection, a CAM would highlight the pixels within a CT scan slice that were most influential in the model's decision to identify a nodule.
+It is important to note that the most influential regions highlighted by CAMs are not necessarily the same as the regions that contain the object of interest. For instance, a model might focus on contextual cues or surrounding tissue patterns that correlate with the presence of a nodule, or use spurious correlations that do not directly correspond to the object itself. Therefore, while CAMs provide valuable insights into the model's reasoning, they should be interpreted with caution and in conjunction with domain knowledge.
+
+The original CAM method required a specific network architecture containing a Global Average Pooling (GAP) layer before the final output layer \cite{zhou2016learning}. It works by extracting the feature maps from the final convolutional layer and weighting each map by the weights connecting it to the output neuron for the class of interest. The resulting weighted sum of feature maps produces a heatmap localized on the features most relevant to that class.
+
+A more flexible and widely used extension is Gradient-weighted Class Activation Mapping (Grad-CAM) \cite{selvaraju2019gradcam}. Grad-CAM generalizes the CAM approach by removing the need for a specific architecture. It calculates the importance of each neuron in the final convolutional layer by using the gradient of the class score with respect to the feature maps of that layer.
+Regions with a large gradient are those where a change in pixel intensity would have a significant impact on the class score, indicating their importance. This gradient-based approach allows Grad-CAM to be applied to a wide variety of CNN architectures without modification.
+
+Several other CAM variants have been proposed to address limitations of Grad-CAM, such as the inclusion of other layers in the calculations to improve resolution and localization, its reliance on gradients -- which can be noisy and unstable -- or simply how the gradients are handled. 
+Notable gradient-free methods include Score-CAM \cite{wang2020score}, which uses the model's output scores to weight the feature maps instead of gradients; Eigen-CAM \cite{muhammad2020eigen}, which employs principal component analysis to identify the most significant features.
+
+% What are CAMs, how they work, and their (usual) limitations. Describe GradCAM as a gradient-based method and then explain why it is problematic for object detection tasks due to their sensitivity to the structured outputs and the non-differentiable post-processing steps. 
+
+\subsection{CAM's Limitations for Object Detection}
+While methods like Grad-CAM are highly effective for classification tasks, they cannot be directly applied to object detection models without prior modifications. These limitations arise from the fundamental differences between the two tasks, but mostly regarding the structural difference of the model's output and the post-processing operations involved.
+
+The first significant hurdle is the structured output problem. A classification model produces a single scalar score for a given class (e.g., the logit or probability that an image contains a "nodule"). This single, well-defined score serves as a clear target for computing gradients. An object detection model, in contrast, produces a variable-length list of predictions. Each prediction is a composite structure containing: a bounding box with spatial coordinates (x, y, width, height), a class label (e.g., "nodule"), and a confidence score.
+
+This raises a critical question: if the model detects multiple potential nodules, which prediction's score should be backpropagated to generate the explanation? Choosing the highest-scoring box might ignore other valid detections, while averaging scores could dilute the explanation. This ambiguity complicates the fundamental requirement of having a single, differentiable target score.
+
+The second, and more critical, limitation is the non-differentiability of the detection pipeline. Object detection models rely on a crucial post-processing step known as Non-Maximum Suppression (NMS) discussed in Section~\ref{sec:anchor_based_detectors}.
+This algorithmic filtering is not a differentiable operation. A minuscule change in a feature map within the network could lead to a slight change in a box's confidence score. This seemingly insignificant change could alter the ranking of boxes, causing NMS to discard a prediction it would have otherwise kept, or vice versa. This creates sharp discontinuities in the end-to-end function from the model's feature maps to its final output. Consequently, the gradient becomes unstable or, at these points of discontinuity, completely undefined.
+
+For an explanation method to be considered faithful, it must be stable; small, imperceptible changes to the input should not cause wild fluctuations in the explanation. The unstable gradients caused by NMS mean that a gradient-based explanation -- such as Grad-CAM -- for an object detector can be unreliable. Two nearly identical CT slices might produce drastically different heatmaps, undermining the very trust the explanation is meant to build. These challenges motivate the need for an alternative approach, leading to the adaptation of gradient-free CAM methods for the object detection task.
 
 \subsection{Adaptations for Object Detection}
-Discuss gradient-free CAM methods ScoreCAM, SS-CAM and EigenCAM, highlighting how they can be adapted to work with object detection outputs. there's a bit of math involved here as we got to pinpoint what fails in their original implementations and how we can fix it.
+Given the inherent limitations of gradient-based methods in the context of object detection, our work turns to gradient-free CAM techniques. These methods do not rely on backpropagation and are therefore robust against the challenges posed by non-differentiable operations like NMS.
+Among these, Eigen-CAM is the most straightforward to apply. Its methodology generates explanations by performing a Principal Component Analysis (PCA) on the activation maps of a target layer. Since this process is entirely self-contained within the feature maps and does not depend on the model's final output, it works "out-of-the-box" for object detection architectures without any modification.
+However, more sophisticated methods like Score-CAM and its variants, which are class-discriminative, require significant adaptation to handle the structured outputs of an object detector.
+
+\subsubsection{Adapting Score-CAM}
+
+To understand the necessary adaptations, we must first revisit the core mechanism of Score-CAM in its original classification context. The final Score-CAM explanation, $L^{c}_{\text{Score-CAM}}$, for a class $c$ is formally defined as the ReLU-clipped, weighted linear combination of the activation maps $A^{k}_{\ell}$ from a target convolutional layer $\ell$
+\begin{equation}
+    L^{c}_{\text{Score-CAM}} = \mathrm{ReLU}\left( \sum_{k} \alpha^{c}_{k} A^{k}_{\ell} \right)
+    \label{eq:scorecam}
+\end{equation}
+
+The critical component here is the weight $\alpha^{c}_{k}$, which represents the importance of the \textit{k}-th activation map for class \textit{c}. Score-CAM calculates this weight using a metric called the Channel-wise Increase in Confidence (CIC). The CIC for an activation map $A^{k}_{\ell}$ is given by:
+\begin{equation}
+    \alpha_k^c = \text{CIC}\left(A^{k}_{\ell}\right) = f\left(X \circ H^{k}_{\ell}\right) - f(X_{b})
+    \label{eq:cic}
+\end{equation}
+
+Where:
+\begin{itemize}
+    \item $f(\cdot)$ is the forward pass of the model, which outputs a confidence score for the target class.
+    \item $X$ is the input image tensor.
+    \item $f(X_{b})$ is the baseline score from the original, unperturbed image.
+    \item $\circ$ denotes the element-wise product.
+    \item $H^{k}_{\ell}$ is a mask generated from the activation map $A^{k}_{\ell}$ by upsampling it to the input image size and normalizing its values to the range $[0, 1]$. This is defined as:
+    \begin{equation}
+        H^{k}_{\ell} = s\left(\text{Up}\left(A^{k}_{\ell}\right)\right)
+        \label{eq:mask_generation}
+    \end{equation}
+    Here, $\text{Up}(\cdot)$ is the upsampling operation and $s(\cdot)$ is the normalization function.
+\end{itemize}
+
+This mathematical framework fundamentally breaks down when applied to an object detector. The model's forward pass, $f(\cdot)$, does not return a single scalar confidence score. Instead, $f(X \circ H^{k}_{\ell})$ and $f(X_{b})$ produce structured outputs: variable-length lists of detections, each with its own bounding box, class label, and score. Consequently, the subtraction operation in the CIC formula (Equation \ref{eq:cic}) is mathematically undefined. It is not arithmetically possible to subtract one set of detections from another.
+
+This necessitates a new way to measure the ``increase in confidence'' or, more accurately, the similarity between two sets of structured predictions.
+
+Our solution is to replace the undefined subtraction with a custom scoring function, implemented as \texttt{FasterRCNNBoxScoreTarget}. This function effectively quantifies how well the model's output from a perturbed image aligns with its original, baseline output. It transforms the comparison of two complex outputs into a single, scalar similarity score, which can then be used as the weight $\alpha^{c}_{k}$ in the Score-CAM algorithm.
+
+The \texttt{FasterRCNNBoxScoreTarget} function operates as described in Algorithm \ref{alg:box-score-target}. It takes as input the original detections $D_{orig}$ from the unperturbed image and the new detections $D_{new}$ from the perturbed image. The function computes a similarity score by iterating over each bounding box in the original detections and finding the best matching box in the new detections based on Intersection over Union (IoU) and class label agreement.
+The final output of the function is the sum of these individual scores, resulting in a single scalar value. This value represents the overall similarity between the original and perturbed detections and serves as a direct replacement for the CIC score in the Score-CAM framework.
+
+
+\begin{algorithm}
+    \caption{FasterRCNNBoxScoreTarget: Similarity Scoring for Object Detection Outputs}
+    \label{alg:box-score-target}
+    \DontPrintSemicolon
+    \SetAlgoLined
+    \setstretch{1.2}
+
+    \SetKwInOut{Input}{Input}
+    \SetKwInOut{Output}{Output}
+    
+    \Input{
+        $D_{orig}$: original detections \{boxes, labels, scores\}\;
+        $D_{new}$: new detections from perturbed image \{boxes, labels, scores\}\;
+        $T_{iou}$: IoU threshold for matching
+    }
+    \Output{A scalar similarity score}
+
+    \SetKwData{totalScore}{totalScore}
+    \SetKwData{ious}{ious}
+    \SetKwData{bestIoU}{bestIoU}
+    \SetKwData{matchIndex}{matchIndex}
+    \SetKwData{boxScore}{boxScore}
+
+    \BlankLine
+
+    $\totalScore \gets 0.0$\;
+    
+    \ForAll(){(box$_{orig}$, label$_{orig}$, score$_{orig}$) \textup{in} $D_{orig}$}{
+        \If{$D_{new}$ \textup{is not empty}}{
+            % \tcc{Find the best matching new detection}
+            $\ious \gets$ ComputeIoU(box$_{orig}$, boxes$_{new}$)\;
+            $\bestIoU, \matchIndex \gets$ FindMaxWithValueAndIndex($\ious$)\;
+            
+            \BlankLine
+            % \tcc{Check if the match is valid (sufficient overlap and same class)}
+            label$_{new} \gets$ labels$_{new}$[$\matchIndex$]\;
+            \If{$(\bestIoU > T_{iou})$ \textup{and} $(label_{orig} = label_{new})$}{
+                % \tcc{Calculate score based on IoU and confidence similarity}
+                score$_{new} \gets$ scores$_{new}$[$\matchIndex$]\;
+                $\boxScore \gets \bestIoU \times (1 - (score_{new} - score_{orig})^2)$\;
+                $\totalScore \gets \totalScore + \boxScore$\;
+            }
+        }
+    }
+    
+    \Return{$\totalScore$}\;
+\end{algorithm}
+
+\subsubsection{Adapting Smoothed Score-CAM (SS-CAM)}
+\label{subsubsec:adapting_sscam}
+
+Smoothed Score-CAM (SS-CAM) is an extension of Score-CAM designed to produce less noisy and more robust explanations. It achieves this by introducing a small amount of random noise to the activation map masks before they are applied to the input image, repeating this process over $N$ trials, and averaging the resulting scores.
+
+Formally, the weight $\alpha^{c}_{k}$ for each activation map is computed as an average of the CIC scores obtained from stochastically perturbed masks:
+\begin{equation}
+    \alpha^{c}_{k} = \frac{1}{N} \sum_{i=1}^{N} \text{CIC}\left(f\left(X \circ \left(H^{k}_{l} + D_i\right)\right)\right)
+    \label{eq:sscam_weight}
+\end{equation}
+where $D_i$ is a noise tensor sampled from a distribution, typically a Gaussian $\mathcal{N}(0, \sigma^2)$.
+
+This method naturally inherits the same fundamental challenge as Score-CAM regarding the structured outputs of object detectors. The CIC calculation, and its core subtraction operation, remains mathematically undefined. Therefore, the primary adaptation is identical: we replace the scoring mechanism with the \texttt{FasterRCNNBoxScoreTarget} algorithm (as defined in Algorithm \ref{alg:box-score-target}) to compute a scalar similarity score for each of the $N$ noisy forward passes.
+
+However, a second, more subtle adaptation was required during implementation, which is unique to the SS-CAM methodology. The original SS-CAM papers often assume input images with pixel values in the integer range $[0, 255]$. In medical imaging pipelines, it is standard practice to normalize images to a floating-point range, such as $[0, 1]$. When using such normalized inputs, the magnitude of the noise proposed by the original SS-CAM method can easily overwhelm the signal from the activation map mask itself, leading to meaningless scores and unstable explanations.
+
+To address this, we introduce a minor but critical modification: the Gaussian noise is scaled down significantly before being added to the mask. This is implemented in our code with the operation \texttt{noise.div\_(20.)}. This adjustment ensures that the noise acts as a gentle perturbation, smoothing the explanation space around the original prediction as intended, rather than dominating the input and corrupting the measurement.
