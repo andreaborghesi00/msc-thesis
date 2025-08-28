@@ -397,7 +397,7 @@ For an explanation method to be considered faithful, it must be stable; small, i
 
 \subsection{Adaptations for Object Detection}
 Given the inherent limitations of gradient-based methods in the context of object detection, our work turns to gradient-free CAM techniques. These methods do not rely on backpropagation and are therefore robust against the challenges posed by non-differentiable operations like NMS.
-Among these, Eigen-CAM is the most straightforward to apply. Its methodology generates explanations by performing a Principal Component Analysis (PCA) on the activation maps of a target layer. Since this process is entirely self-contained within the feature maps and does not depend on the model's final output, it works "out-of-the-box" for object detection architectures without any modification.
+Among these, Eigen-CAM is the most straightforward to apply. Its methodology generates explanations by performing a Principal Component Analysis (PCA) on the activation maps of a target layer. Since this process is entirely self-contained within the feature maps and does not depend on the model's final output, it works ``out-of-the-box" for object detection architectures without any modification.
 However, more sophisticated methods like Score-CAM and its variants, which are class-discriminative, require significant adaptation to handle the structured outputs of an object detector.
 
 \subsubsection{Adapting Score-CAM}
