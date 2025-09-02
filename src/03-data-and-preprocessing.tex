@@ -48,9 +48,195 @@ $$
 
 Where \(S_i\) is the original size along dimension \(i\), \(\delta_i\) is the original spacing along dimension \(i\), and \(\delta_i^\prime\) is the desired spacing along dimension \(i\). The output size is rounded to the nearest integer to ensure that it represents a valid number of pixels. Since the NLST dataset is already 2D, the output size for the third dimension is set to 1 as a dummy value.
 
+\paragraph{Ablation Study Design:}
+To empirically validate the effectiveness of the resampling step, an ablation study was designed. The performance of the Faster R-CNN model will be compared across two experimental conditions: 
+\begin{itemize}
+    \item \textbf{Baseline:} The model trained on the original dataset without any resampling.
+    \item \textbf{Resampled:} The model trained on the dataset after applying the resampling step.
+\end{itemize}
+For this experiments we used the EfficientNetV2-S backbone and the results of this ablation study are presented in Figure \ref{fig:resampling-ablation}.
+\input {figures/resampling-ablation.tex}
+As we can see from the results, the resampling step has a significant positive impact on the model's performance, particularly at higher IoU thresholds. This demonstrates the importance of having a consistent spatial resolution across all scans, validating the effectiveness of the resampling step in the preprocessing pipeline.
+
 \subsubsection{Hounsfield Unit Clipping}
 \label{sec:hu-clipping}
 Hounsfield Units (HU) are a quantitative scale for describing radiodensity in medical CT imaging. Different tissues and materials in the body have characteristic HU values, which can be used to differentiate between them. Table~\ref{tab:hu-scale} summarizes the typical HU ranges for various substances commonly found in CT scans. For our purposes, we focus on the range from -1000 HU (representing air) up to +500 HU to include soft and hard tissues, while escluding extremely high values that could correspond to implants or artifacts.
 \input{tables/hu-scale.tex}
 
+\subsection{Slice Selection Algorithms}
+\label{sec:dataset_pruning}
+% Explain the need for slice selection algorithms in this 2D setting, as some might not contain relevan information (nodule mass). explain the statistical approach, the sliding window approach and finally the simple thresholding approach.
+A preliminary analysis revealed that the model's performance on the Duke Lung Cancer Screening (DLCS) dataset was significantly lower than on the National Lung Screening Trial (NLST) dataset. This discrepancy is attributed not only to the model's limitations but also to the inherent challenges of the DLCS data itself, primarily the smaller and more variable size of nodules and the nature of the volumetric annotations.
+
+After a brief analysis became apparent that a significant portion of the extracted 2D slices did not contain any nodules or relevant anatomical structures. This is particularly true for the upper and lower regions of the extracted nodules, where the section of the cancerous tissue is minimal or non-existent (see Figure~\ref{fig:non-visible-nodule}).
+
+\input{figures/non-visible-nodule.tex}
+
+The strategy of extracting every 2D slice from a 3D volumetric bounding box is susceptible to annotation inaccuracies. Volumetric annotations are rarely perfect, often including slices at the superior and inferior extremes where the nodule is barely visible or entirely absent. Training the model on these "empty" or noisy slices can introduce a significant amount of label noise, potentially degrading its performance by forcing it to learn from irrelevant or misleading examples.
+
+To mitigate this, a dataset pruning strategy was developed to selectively remove these low-information slices. Several approaches were investigated to identify and remove them in a principled manner.
+
+\subsubsection{Exploration of Pruning Strategies}
+The core assumption behind our pruning is that slices containing predominantly healthy lung tissue or air will have a significantly lower average Hounsfield Unit (HU) intensity within the annotated bounding box compared to slices containing dense tumorous tissue. Based on this, the following strategies were explored:
+
+\paragraph{Statistical Outlier Detection:} This initial approach, detailed in Algorithm \ref{alg:stat-pruning}, involved calculating the median ($\tilde{m}$) and Interquartile Range (IQR) of the mean bounding box intensities for all slices belonging to a single nodule. Slices with intensities considered to be low-end outliers were removed. However, this method proved to be overly aggressive, eliminating a substantial number of slices (~50\% of the dataset), including many that contained valuable information.
+
+\begin{algorithm}[H]
+    \caption{Strategy 1: Statistical Pruning}
+    \label{alg:stat-pruning}
+    \DontPrintSemicolon
+    \SetAlgoLined
+    \setstretch{1.2}
+
+    \SetKwInOut{Input}{Input}
+    \Input{
+        SlicesForNodule: a list of (slice, mean\_intensity) pairs for one nodule\;
+        $\alpha$: an adjustment factor (e.g., 1.5)
+    }
+    \SetKwData{keptSlices}{kept\_slices}
+    \SetKwData{meanIntensities}{mean\_intensities}
+    
+    \BlankLine
+    
+    $\meanIntensities \gets$ [s.mean\_intensity for s in SlicesForNodule]\;
+    Q1 $\gets$ FirstQuartile($\meanIntensities$)\;
+    IQR $\gets$ InterquartileRange($\meanIntensities$)\;
+    threshold $\gets$ Q1 - ($\alpha \times$ IQR)\;
+    
+    \BlankLine
+    $\keptSlices \gets \{\}$\;
+    \ForAll(){(slice, intensity) \textup{in} SlicesForNodule}{
+        \If{intensity $\geq$ threshold}{
+            $\keptSlices$.add(slice)\;
+        }
+    }
+    \Return{$\keptSlices$}\;
+\end{algorithm}
+
+
+This approach, although being statistically sound, it tries to estimate properties of the mean intensity distribution, namely median and IQR, of each sample given a very limited number of slices for each nodule. This limitation often leads to an overly aggressive pruning, as the statistical estimates may not accurately reflect the true distribution of intensities.
+It may also happen that if a given annotation is particularly noisy, shallow or generally mostly uninformative, the statistical properties of the mean intensity distribution may be skewed, leading to the opposite effect, removing informative slices as they might be detected as outliers of the distribution.
+
+\paragraph{Sliding Window Approach:} To incorporate spatial locality, a sliding window of size $K$ was moved along the z-axis of each nodule (slices sorted by height). The window position that maximized the cumulative mean intensity was considered to contain the core of the nodule, as shown in Algorithm \ref{alg:sliding-window-pruning}. While this produced more coherent results, it was sensitive to the choice of $K$ and the full strategy (testing all possible values of $K$ and using an elbow method to choose the best one) proved overly complex.
+
+\begin{algorithm}[H]
+    \caption{Strategy 2: Sliding Window Pruning (fixed K)}
+    \label{alg:sliding-window-pruning}
+    \DontPrintSemicolon
+    \SetAlgoLined
+    \setstretch{1.2}
+    
+    \SetKwInOut{Input}{Input}
+    \Input{
+        SortedSlices: a list of slices for one nodule, sorted by z-index\;
+        K: the size of the sliding window
+    }
+    \SetKwData{intensities}{intensities}
+    \SetKwData{maxSum}{max\_sum}
+    \SetKwData{bestStart}{best\_start\_index}
+
+    \BlankLine
+    
+    $\intensities \gets$ [s.mean\_intensity for s in SortedSlices]\;
+    $\maxSum \gets -\infty$\;
+    $\bestStart \gets -1$\;
+    
+    \For{$i \gets 0$ \textup{to} len(SortedSlices) - K}{
+        current\_sum $\gets$ Sum of $\intensities$ from index $i$ to $i+K-1$\;
+        \If{current\_sum $>$ $\maxSum$}{
+            $\maxSum \gets$ current\_sum\;
+            $\bestStart \gets i$\;
+        }
+    }
+    \Return{sub-list of SortedSlices from $\bestStart$ to $\bestStart+K-1$}\;
+\end{algorithm}
+
+Similarly to the statistical approach, this method ended up being overly aggressive, eliminating almost $40\%$ of the original data. This behaviour is due to the very shallow curve generated by the best cumulative mean intensity for each $K$. Meaning that the elbow point, supposed to indicate the optimal $K$ was often not well-defined. As a result, even when the annotation where well positioned, the method would still exclude some slices, although informative.
+Nonetheless, the resulting dataset was definitely more coherent compared to the statistical approach.
+
+\paragraph{Informed HU Thresholding:} The final and most effective strategy was a simple yet informed threshold, described in Algorithm \ref{alg:threshold-pruning}. Based on the typical HU values for soft tissue, a threshold of -750 HU was established. Any slice where the average intensity within the ground truth bounding box fell below this value was removed. This method is less aggressive and more clinically grounded, resulting in the exclusion of approximately 12.5\% of the total slices.
+
+\begin{algorithm}[H]
+    \caption{Strategy 3: Informed HU Thresholding}
+    \label{alg:threshold-pruning}
+    \DontPrintSemicolon
+    \SetAlgoLined
+    \setstretch{1.2}
+
+    \SetKwInOut{Input}{Input}
+    \Input{
+        SlicesForNodule: a list of (slice, mean\_intensity) pairs for one nodule\;
+        $T_{HU}$: the HU threshold (-750 HU)
+    }
+    \SetKwData{keptSlices}{kept\_slices}
+    
+    \BlankLine
+    
+    $\keptSlices \gets \{\}$\;
+    \ForAll(){(slice, intensity) \textup{in} SlicesForNodule}{
+        \If{intensity $\geq T_{HU}$}{
+            $\keptSlices$.add(slice)\;
+        }
+    }
+    \Return{$\keptSlices$}\;
+\end{algorithm}
+
+Despite its simplicity, this approach effectively balances the need to remove uninformative slices while preserving potentially informative ones.
+Differently from the other methods, it does not need to estimate properties from the data distribution of a single nodule, but rather relies on established clinical knowledge about HU values, making it more robust to annotation noise and variability in nodule appearance.
+
+\paragraph{Ablation Study Design}
+To empirically validate the effectiveness of the final Informed HU Thresholding strategy, an ablation study was designed. The performance of the Faster R-CNN model will be compared across two experimental conditions:
+\begin{itemize}
+    \item \textbf{Baseline:} The model trained on the full dataset of all extracted slices.
+    \item \textbf{Pruned:} The model trained on the dataset after applying the pruning strategy from Algorithm \ref{alg:threshold-pruning}.
+\end{itemize}
+This experiment was conducted using the EfficientNetV2-S backbone and the results of this ablation study are presented in Figure \ref{fig:threshold-pruning-ablation}.
+
+\input{figures/threshold-pruning-ablation.tex}
+
+The results clearly demonstrate the positive impact of the pruning strategy on the model's performance, particularly at higher IoU thresholds. This indicates that removing uninformative slices helps the model to focus on learning from relevant examples, thereby improving its detection capabilities. The Informed HU Thresholding strategy effectively enhances the quality of the training data, validating its inclusion in the preprocessing pipeline.\\
+
+In addition to this ablation study, we also conducted a negative control experiment by training the same model on the dataset using the excluded slices only amounting to approximately 12.5\% of the original data (~1000 slices). The results of this experiment -- despite the limited amount of data -- showed an extremely poor performance, with an AP@5:95 of only 0.01, confirming that the excluded slices were indeed largely uninformative for the task of nodule detection.
+
+
+
+\subsection{Three-channel Input Representation}
+\label{sec:2.5d_approach}
+
+While a 2D slice-based approach offers significant computational advantages over a full 3D analysis, it inherently discards the volumetric context that is crucial for accurate nodule characterization. In a single 2D slice, a small pulmonary nodule can be morphologically indistinguishable from a cross-section of a blood vessel or other anatomical structures. Radiologists naturally scroll through adjacent slices to observe how a feature evolves in the third dimension (the z-axis) to make a confident diagnosis.
+
+To address this limitation without incurring the prohibitive memory and computational costs of full 3D convolutional networks, we adopt a multi-channel input representation, often referred to as a \textbf{2.5D approach}. This method synthesizes local volumetric information into a format that is directly compatible with standard 2D CNN architectures.
+The idea comes from the observation that the pretrain used from ImageNet is on RGB images, which have already have three channels, while CT scans are single channel grayscale images, so we can leverage this by stacking adjacent slices to create a three-channel input, rather than copying the same slice three times.
+
+For a given target slice at position $z$, which contains a nodule annotation, we construct a three-channel input tensor analogous to a standard RGB image. Instead of Red, Green, and Blue channels, the three channels are populated with grayscale intensity information from adjacent CT slices:
+
+\begin{itemize}
+    \item \textbf{Channel 1:} The preceding slice in the sequence, at position ($z-1$).
+    \item \textbf{Channel 2:} The current target slice, at position ($z$).
+    \item \textbf{Channel 3:} The subsequent slice in the sequence, at position ($z+1$).
+\end{itemize}
+If there is no available preceding or subsequent slice (e.g., at the beginning or end of a scan), the missing channel is filled by duplicating the target slice.
+This technique offers several key advantages for our methodology:
+
+\begin{itemize}
+    \item \textbf{Enhanced Feature Representation:} It provides the model with crucial, localized 3D context. By seeing the preceding and subsequent slices, the network can learn to discern the characteristic spherical shape of a nodule as it changes across slices, helping to differentiate it from elongated, tubular structures like blood vessels.
+
+    \item \textbf{Compatibility with Pre-trained Models:} It aligns perfectly with the three-channel input structure of the canonical backbone architectures used in this work (ResNet50, MobileNetV2, and EfficientNetV2-S). This allows for the direct and effective use of weights pre-trained on ImageNet, a dataset of three-channel RGB images, which is a cornerstone of modern transfer learning.
+
+    \item \textbf{Computational Efficiency:} The approach processes three 2D slices at a time using standard 2D convolutions, thereby retaining the computational efficiency of a 2D pipeline. This avoids the exponential increase in parameters and memory usage associated with 3D convolutional layers, making the method accessible on commercial GPU hardware.
+\end{itemize}
+
+In cases where a preceding or subsequent slice is not available (i.e., for the very first or last slice in a nodule's sequence), the missing channel is populated by duplicating the target slice $z$. This padding technique ensures a consistent input dimension for all samples fed to the network.
+
+\paragraph{Ablation Study Design:}
+To empirically validate the effectiveness of the 2.5D approach, an ablation study was designed. The performance of the Faster R-CNN model will be compared across two experimental conditions:
+\begin{itemize}
+    \item \textbf{Single-channel Input:} The model trained using only the target slice as a single-channel grayscale image, with the channel duplicated to create a three-channel input.
+    \item \textbf{Three-channel Input:} The model trained using the 2.5D approach, with the target slice and its adjacent slices forming a three-channel input. 
+\end{itemize}
+To conduct this study we used the Faster R-CNN model with an EfficientNetV2-S backbone on the DLCS dataset and the results are presented in Figure \ref{fig:3channel-ablation}.
+
+\input{figures/3-channel-ablation.tex}
+
+We can clearly see the impact that the 2.5D approach has on the model's performance, with a significant increase in Average Precision across all IoU thresholds when using the three-channel input representation. This demonstrates the value of incorporating local volumetric context into a 2D detection framework, validating the effectiveness of the 2.5D approach for pulmonary nodule detection. Given these results, the 2.5D three-channel input representation is adopted as the standard input format for all subsequent experiments in this thesis.
 
