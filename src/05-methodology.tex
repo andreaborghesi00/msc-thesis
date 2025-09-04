@@ -172,7 +172,7 @@ The goal of this game is to measure how well the close are the highest activatio
 A higher score in the Inverse Distance Game indicates that the CAM method is more faithful, as it means that the regions of highest activation are closer to the actual nodule location. This quantitative metric allows for an objective comparison between different CAM techniques, providing insights into their effectiveness in explaining the model's predictions in the context of lung nodule detection.
 
 Since the distance is normalized by the image diagonal for scale invariance, the final score ranges from 0 to 1, where a score of 1 indicates perfect alignment (all top activated pixels are exactly on the ground truth bounding box), and a score of 0 indicates that the top activated pixels are as far as possible from the bounding box (i.e., at the opposite corners of the image).
-Since a low score (below 0.5) is rather unlikely, we generally consider a high score to be anything above ~0.85. To penalize even more wrong explanations, we also experimented with diffent $p$ values for the Minkowski distance, as shown in Figure \ref{fig:minkowski} and decided to use $p=6$ for our experiments.
+Since a low score (below 0.5) is rather unlikely, we generally consider a high score to be anything above $\sim$0.85. To penalize even more wrong explanations, we also experimented with diffent $p$ values for the Minkowski distance, as shown in Figure \ref{fig:minkowski} and decided to use $p=6$ for our experiments.
 
 \input{figures/minkowski.tex}
 

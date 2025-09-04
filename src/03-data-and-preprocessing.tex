@@ -79,7 +79,7 @@ To mitigate this, a dataset pruning strategy was developed to selectively remove
 \subsubsection{Exploration of Pruning Strategies}
 The core assumption behind our pruning is that slices containing predominantly healthy lung tissue or air will have a significantly lower average Hounsfield Unit (HU) intensity within the annotated bounding box compared to slices containing dense tumorous tissue. Based on this, the following strategies were explored:
 
-\paragraph{Statistical Outlier Detection:} This initial approach, detailed in Algorithm \ref{alg:stat-pruning}, involved calculating the median ($\tilde{m}$) and Interquartile Range (IQR) of the mean bounding box intensities for all slices belonging to a single nodule. Slices with intensities considered to be low-end outliers were removed. However, this method proved to be overly aggressive, eliminating a substantial number of slices (~50\% of the dataset), including many that contained valuable information.
+\paragraph{Statistical Outlier Detection:} This initial approach, detailed in Algorithm \ref{alg:stat-pruning}, involved calculating the median ($\tilde{m}$) and Interquartile Range (IQR) of the mean bounding box intensities for all slices belonging to a single nodule. Slices with intensities considered to be low-end outliers were removed. However, this method proved to be overly aggressive, eliminating a substantial number of slices ($\sim$50\% of the dataset), including many that contained valuable information.
 
 \begin{algorithm}[H]
     \caption{Strategy 1: Statistical Pruning}
@@ -196,7 +196,7 @@ This experiment was conducted using the EfficientNetV2-S backbone and the result
 
 The results clearly demonstrate the positive impact of the pruning strategy on the model's performance, particularly at higher IoU thresholds. This indicates that removing uninformative slices helps the model to focus on learning from relevant examples, thereby improving its detection capabilities. The Informed HU Thresholding strategy effectively enhances the quality of the training data, validating its inclusion in the preprocessing pipeline.\\
 
-In addition to this ablation study, we also conducted a negative control experiment by training the same model on the dataset using the excluded slices only amounting to approximately 12.5\% of the original data (~1000 slices). The results of this experiment -- despite the limited amount of data -- showed an extremely poor performance, with an AP@5:95 of only 0.01, confirming that the excluded slices were indeed largely uninformative for the task of nodule detection.
+In addition to this ablation study, we also conducted a negative control experiment by training the same model on the dataset using the excluded slices only amounting to approximately 12.5\% of the original data ($\sim$1000 slices). The results of this experiment -- despite the limited amount of data -- showed an extremely poor performance, with an AP@5:95 of only 0.01, confirming that the excluded slices were indeed largely uninformative for the task of nodule detection.
 
 
 
