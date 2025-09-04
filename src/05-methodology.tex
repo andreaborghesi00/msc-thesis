@@ -98,5 +98,83 @@ Discuss the classification network, how we extracted a classification dataset fr
 
 
 \section{Explainability Methods}
-Describe how are we using the adapted CAM methods, which layers we're targeting and an example of expected output.
-Explain how we're going to compare the explainability methods using the segmentation game.
+% Describe how are we using the adapted CAM methods, which layers we're targeting and an example of expected output.
+% Explain how we're going to compare the explainability methods using the distance game.
+\label{sec:xai_methods}
+
+To provide insight into the model's decision-making process we employ several gradient-free Class Activation Map (CAM) methods. As established in Chapter \ref{ch:background}, gradient-free methods are necessary to circumvent the challenges posed by the structured outputs and non-differentiable operations (e.g., NMS) inherent to the Faster R-CNN architecture. Specifically, we implement and evaluate three adapted CAM techniques: Eigen-CAM, Score-CAM, and Smoothed Score-CAM (SS-CAM).
+
+\subsection{CAM Implementation and Application}
+\label{subsec:cam_implementation}
+
+The generation of a CAM explanation requires targeting a specific layer within the network from which to extract activation maps. For all CAM methods used in this work, in this study cases it is usual to select the final feature map produced by the Feature Pyramid Network (FPN) component. This layer contains rich semantic information but at a reduced spatial resolution. To account for this, we compute the CAM also at the second to last FPN layer, which has a higher spatial resolution but less semantic abstraction. 
+Finally, we average the two resulting heatmaps once they have been upsampled to the original input size.
+
+The process for generating an explanation for a given input image is as follows:
+\begin{enumerate}
+    \item The input image is passed through the model to obtain the baseline predictions (bounding boxes, labels, and scores).
+    \item The chosen CAM method (Eigen-CAM, Score-CAM, or SS-CAM) is then applied, using the activations from the target FPN layer. For Score-CAM and SS-CAM, this involves the adapted \texttt{FasterRCNNBoxScoreTarget} function to handle the object detection outputs.
+    \item The output is a 2D saliency map, or heatmap, of the same dimensions as the input slice.
+\end{enumerate}
+
+The expected output is an interpretable visualization. To produce this, the raw heatmap is normalized to the range $[0, 1]$, color-mapped (typically from blue for low activation to red for high activation), and overlaid with transparency on the original CT slice. This visualization directly highlights the pixels and regions the model found most salient when making its detection decision.
+
+\subsection{Quantitative Evaluation of CAM Methods}
+\label{subsec:xai_evaluation}
+
+A purely visual inspection of heatmaps is subjective and insufficient for a rigorous comparison of explainability methods. To objectively and quantitatively compare the faithfulness of the different CAM techniques, there are several established "games" or evaluation protocols in the literature \cite{selvaraju2019gradcam,chattopadhay_2018gradcam++,wang2020score}. In this work, we noticed a significant amount of noise in the generated heatmaps, likely due to the inherent complexity of the detection task and the scarcity of annotated data.
+To mitigate this, we designed and implemented a novel evaluation protocol called the "\textit{Inverse Distance Game}", inspired by the "Segmentation Game" proposed in \cite{chattopadhay_2018gradcam++}.
+
+The goal of this game is to measure how well the close are the highest activation scores of a CAM's explanation are to the actual, ground-truth location of the nodule. To do so we proceed as described in Algorithm \ref{alg:distance-game}.
+
+\begin{algorithm}[H]
+    \caption{The Inverse Distance Game}
+    \label{alg:distance-game}
+    \DontPrintSemicolon
+    \SetAlgoLined
+    \setstretch{1.2}
+
+    \SetKwInOut{Input}{Input}
+    \Input{
+        $H_{cam}$: The 2D CAM heatmap\;
+        $B_{gt}$: The ground truth bounding box $[x_1, y_1, x_2, y_2]$\;
+        $M_{adaptive}$: Adaptive multiplier for selecting top pixels (e.g., 1.0)
+    }
+    \SetKwData{keptSlices}{kept\_slices}
+    
+    \BlankLine
+    
+    \tcc{1. Adaptively select top activated pixels}
+    $A_{gt} \gets$ Area of $B_{gt}$\;
+    $A_{target} \gets A_{gt} \times (1 + M_{adaptive})$\;
+    Determine threshold $T$ such that the number of pixels in $H_{cam}$ with activation $\ge T$ is approximately $A_{target}$\;
+    $P_{top} \gets$ set of all pixels $p=(x, y)$ where $H_{cam}(x, y) \ge T$\;
+
+    \BlankLine
+
+    \tcc{2. Calculate normalized distance for each pixel}
+    $D_{diag} \gets$ length of the image diagonal\;
+    $Distances_{norm} \gets \{\}$\;
+    \ForAll(){pixel $p=(x, y)$ \textup{in} $P_{top}$}{
+        $p_{closest} \gets$ The point on the boundary of $B_{gt}$ closest to $p$\;
+        \tcc{The distance is 0 if p is inside the box}
+        $d \gets$ EuclideanDistance($p, p_{closest}$)\;
+        $d_{norm} \gets d / D_{diag}$\;
+        $Distances_{norm}$.add($d_{norm}$)\;
+    }
+
+    \BlankLine
+    \tcc{3. Compute final score}
+    score $\gets 1.0 - \text{Mean}(Distances_{norm})$\;
+    \Return{score}\;
+\end{algorithm}
+
+A higher score in the Inverse Distance Game indicates that the CAM method is more faithful, as it means that the regions of highest activation are closer to the actual nodule location. This quantitative metric allows for an objective comparison between different CAM techniques, providing insights into their effectiveness in explaining the model's predictions in the context of lung nodule detection.
+
+Since the distance is normalized by the image diagonal for scale invariance, the final score ranges from 0 to 1, where a score of 1 indicates perfect alignment (all top activated pixels are exactly on the ground truth bounding box), and a score of 0 indicates that the top activated pixels are as far as possible from the bounding box (i.e., at the opposite corners of the image).
+Since a low score (below 0.5) is rather unlikely, we generally consider a high score to be anything above ~0.85. To penalize even more wrong explanations, we also experimented with diffent $p$ values for the Minkowski distance, as shown in Figure \ref{fig:minkowski} and decided to use $p=6$ for our experiments.
+
+\input{figures/minkowski.tex}
+
+
+
