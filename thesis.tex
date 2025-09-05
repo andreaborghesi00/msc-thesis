@@ -1,16 +1,17 @@
-\documentclass[11pt]{book} 
+\documentclass{book} 
 % \usepackage{classicthesis}
 \usepackage{thesis}
-\setstretch{1.05} % 1.1 line spacing
+% \setstretch{1.05} % 1.1 line spacing
 
 \raggedbottom
 \begin{document}
-
+\fontsize{11.5pt}{14pt}\selectfont
+ 
 \includepdf{thesistitlepage/titlepage.pdf}
 \frontmatter
 \tableofcontents
 
-\mainmatter
+\mainmatter 
 \include{src/01-introduction}
 \include{src/02-background}
 \include{src/03-data-and-preprocessing}
