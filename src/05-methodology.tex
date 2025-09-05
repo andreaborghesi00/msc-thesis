@@ -17,6 +17,26 @@ To investigate the trade-off between model performance and computational efficie
 
 In all experiments, each backbone was initialized with weights pre-trained on the ImageNet1k dataset. This transfer learning approach is a standard practice that leverages the rich, hierarchical features learned from a large-scale, general-purpose dataset to significantly improve performance and reduce training time on smaller, specialized datasets such as the one used in this study. 
 
+\section{Model Architectures and Training Details}
+We mainly implemented two object detection architectures: Faster R-CNN and RetinaNet, both of which are widely used in the field. Each architecture was tested on several backbones, namely ResNet50, MobileNetV2, and EfficientNetV2S.
+The experimental framework was built entirely from scratch, allowing us to customize each component of the object detection pipeline, including the backbone selection and anchor box sizes, along with the usual training hyperparameters such as learning rate and batch size.
+
+The implementation of these two architectures was mainly provided by the \texttt{torchvision} library \cite{torchvision2016} . Unfortunately, it does not provide an implementation of these architectures with EfficientNetV2S as a backbone, so we had to implement it ourselves and attach it to an FPN head. The same applied for the MobileNetV2 backbone although for the RetinaNet architecture only. 
+
+Each experiment used mixed precision training, which allows most computation to be performed using 16-bit floating-point (FP16) precision, while maintaining 32-bit floating-point (FP32) precision for critical operations that require numerical stability such as loss computation and gradient accumulation \cite{micikevicius2018mixedprecisiontraining}.
+This approach significantly reduces GPU memory usage and accelerates training without compromising model accuracy. The implementation of mixed precision training was provided by the \texttt{torch.cuda.amp} module, which automatically manages the scaling of gradients and the conversion between FP16 and FP32 as needed. 
+
+The following hyperparameters were kept constant for all experiments to ensure a fair comparison.
+Due to the pretrained nature of every experiment, the learning rate was set to a low value of $10^{-4}$ to avoid catastrophic forgetting, and the batch size was set to $8$ to fit the GPU memory constraints. The training was performed for a maximum of $30$ epochs, with early stopping based on the validation metrics to prevent overfitting and cut down on training time with a patience of $10$ epochs. For the same reason the validation set was used to monitor the training process and decided to run a validation step every $3$ epochs.
+The optimzer used was AdamW, which is a variant of the Adam optimizer that decouples weight decay from the optimization step, providing better generalization performance in many cases \cite{loshchilov2019decoupled, kingma2017adam}.
+
+As for the scheduler used, we opted for a Cosine Annealing scheduler, which graduelly reduces the learning rate over the course of training, allowing for a more fine-tuned convergence towards the end of the training process. We also experimented with Cosine Annealing with Warm Restarts, which periodically resets the learning rate to a higher value, but it often led to failed training runs due to the mixed precision training induced instability, so we decided to stick with the simpler version.
+Lastly, for the DLCS dataset, the 3-channels contain the previous, current, and next slice of the analyzed nodule, allowing the model to have a better context of the nodule's surroundings, effectively simulating a 3D input while still using a 2D object detection architecture.
+
+The experiments were run using \texttt{parallel} to allow queuing multiple training runs on the same GPU, which is particularly useful for hyperparameter tuning and ablation studies. This approach allows us to efficiently utilize the available GPU and time resources.
+
+
+
 \subsection{Loss functions}
 \label{sec:loss_functions}
 A central metric for bounding box quality is the \textit{Intersection over Union} (IoU):
@@ -53,8 +73,22 @@ This formulation reduces sensitivity to outliers while maintaining differentiabi
 
 As for the classification component, Faster R-CNN employs the standard cross-entropy loss for binary classification tasks, while RetinaNet utilizes the Focal Loss \cite{lin2018focalloss} to address class imbalance by down-weighting easy negatives and focusing training on hard examples.
 
-\section{Object Detection Data Preprocessing}
-\subsection{Train-time Augmentations}
+\section{Dataset Characteristics and Usage Strategy}
+The National Lung Screening Trial (NLST) dataset served as our initial development and pretraining dataset. NLST contains individual CT slices with annotations for malignant nodules, characterized by relatively large and visually evident nodules that are easier to detect. The individual slice format eliminated the need for complex 3D-to-2D conversion pipelines, allowing us to focus initially on core object detection methodology without the additional complexity of volume processing.
+In contrast, the Duke Lung Cancer Screening (DLCS) dataset represents a more challenging and clinically realistic scenario. DLCS provides full CT volumes with annotations for both benign and malignant nodules, many of which are smaller and more subtle than those in NLST. The volumetric format required implementation of our complete preprocessing pipeline, including the slice selection and pruning algorithms developed to optimize 2D detection performance from 3D volumes discussed in Chapter \ref{chap:data-and-preprocessing}. This dataset was used for final model evaluation, providing a more rigorous test of our methods in a realistic clinical context.
+
+To assess the optimal training approach for our challenging DLCS evaluation scenario, we designed an ablation study comparing two training strategies:
+\begin{itemize}
+    \item \textbf{NLST Pretraining}: Models were pretrained on the NLST dataset before being fine-tuned on the DLCS dataset. This approach leverages the larger, more visually distinct nodules in NLST to provide a strong initial feature representation.
+    \item \textbf{Direct Training on DLCS}: Models were trained directly on the DLCS dataset from ImageNet-pretrained weights, without prior exposure to NLST. This strategy aims to adapt the model directly to the more challenging and clinically relevant nodules in DLCS.
+\end{itemize}
+
+This comparison allows us to evaluate whether the progressive difficulty approach provides significant benefits in terms of detection performance over direct training on the more complex DLCS dataset. 
+
+The transfer learning strategy from NLST to DLCS tries to address the large domain gap between a CT dataset and ImageNet, where the latter is primarily focused on natural images. Nonetheless it is important to note that pretraining on ImageNet is often a standard practice in computer vision as it provides a strong initial feature representation, especially on the first layers of the network that tend to capture low-level features such as edges, textures, and basic shapes, all of which are easily transferable across different domains.
+
+
+\section{Object Detection Train-time Augmentations}
 \label{sec:augmentation}
 To further enhance the robustness of our models and improve their generalization capabilities, we apply a series of data augmentations during training. These augmentations include random rotations, flips, and intensity variations, which help to simulate the variability encountered in real-world clinical settings. By exposing the model to a diverse set of augmented images, we aim to reduce overfitting and improve the model's ability to generalize to unseen data. These augmentations are applied on-the-fly during training, ensuring that the model sees a different version of the data in each epoch.
 
@@ -143,7 +177,7 @@ To each of these architectures, we appended a custom classification head describ
     
 All models were initialized with weights pre-trained on ImageNet1k and fine-tuned on our lung nodule classification dataset. The training process utilized the Adam optimizer \cite{kingma2017adam} with a learning rate of $1e^{-4}$, a batch size of 8, and a harsh weight decay of $1e^{-3}$. A cosine annealing learning rate scheduler was employed to adjust the learning rate dynamically during training. The Focal Loss function was used to guide the optimization process, reflecting the binary nature of the classification task.
 
-\subsection{Train-time Augmentations}
+\section{Classification's Train-time Augmentations}
 To enhance the robustness and generalization capabilities of our classification models, we applied a series of data augmentations during training. These augmentations are designed to simulate the variability encountered in real-world clinical settings, thereby reducing overfitting and improving the model's ability to generalize to unseen data. The specific augmentations applied are as follows:
 \begin{itemize}
     \item \textbf{Horizontal \& Vertical Flips}: Each image has a 50\% chance of being flipped horizontally and a 50\% chance of being flipped vertically. This augmentation helps the model learn invariance to orientation, which is particularly relevant in medical imaging where anatomical structures can appear in various orientations.
