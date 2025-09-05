@@ -53,7 +53,7 @@ This formulation reduces sensitivity to outliers while maintaining differentiabi
 
 As for the classification component, Faster R-CNN employs the standard cross-entropy loss for binary classification tasks, while RetinaNet utilizes the Focal Loss \cite{lin2018focalloss} to address class imbalance by down-weighting easy negatives and focusing training on hard examples.
 
-\section{Data Preprocessing}
+\section{Object Detection Data Preprocessing}
 \subsection{Train-time Augmentations}
 \label{sec:augmentation}
 To further enhance the robustness of our models and improve their generalization capabilities, we apply a series of data augmentations during training. These augmentations include random rotations, flips, and intensity variations, which help to simulate the variability encountered in real-world clinical settings. By exposing the model to a diverse set of augmented images, we aim to reduce overfitting and improve the model's ability to generalize to unseen data. These augmentations are applied on-the-fly during training, ensuring that the model sees a different version of the data in each epoch.
@@ -93,9 +93,64 @@ To synthesize the previously described components, this section outlines the com
 \end{enumerate}
 
 
-\section{Classification Head Extension}
-Discuss the classification network, how we extracted a classification dataset from the detection dataset using the bounding boxes. 
+\section{Classification Head Module}
+% Discuss the classification network, how we extracted a classification dataset from the detection dataset using the bounding boxes. 
 
+The classification head is a detached component that builds learns to classify individual lung nodules as benign or malignant.
+We decided to implement this as a separate model for several reasons:
+A separate classification head introduces both modularity and flexibility, since it can be developed, tested, and optimized independently of the detection model. This separation makes it easier to experiment with alternative architectures and hyperparameters without interfering with the detection component. At the same time, isolating the classification task allows for greater specialization. Unlike detection, classification comes with its own requirements and challenges; by decoupling the two, the architecture and training process can be tailored specifically to the subtleties of distinguishing between benign and malignant nodules.
+Finally, a separate classification head allows for a separate XAI analysis, allowing us to focus on explaining the classification decision independently of the detection process.
+
+\subsection{Models and Training Procedure}
+Since each data sample at our disposal inherently provides low information due to its small size, we opted for lightweight architectures to mitigate overfitting risks.
+Specifically we experimented with:
+\begin{itemize}
+    \item \textbf{EfficientNetV2-S:} A modern architecture that balances performance and efficiency, making it suitable for tasks with limited data \cite{tan2020efficientnet}.
+    \item \textbf{MobileNetV2:} Known for its lightweight design, MobileNetV2 is optimized for mobile and embedded applications, making it a good fit for scenarios where computational resources are constrained \cite{sandler2019mobilenetv2}.
+    \item \textbf{ResNet18:} A shallower variant of the ResNet family, which retains the benefits of residual connections while being less prone to overfitting on small datasets \cite{he2015resnet}.
+    \item \textbf{DenseNet121:} A compact architecture that promotes feature reuse through dense connections, which can be beneficial for learning from limited data \cite{huang2018densenet121}.
+    \item \textbf{ConvNeXt-Tiny:} A modern architecture that incorporates design principles from both CNNs and Transformers, offering a balance between performance and efficiency \cite{liu2022convnext}.
+\end{itemize}
+To each of these architectures, we appended a custom classification head described in Table \ref{tab:classification-head}. This head consists of a series of fully connected layers interleaved with Layer Normalization, SiLU activation functions \cite{elfwing2017silu}, and Dropout for regularization. The final layer outputs logits corresponding to the two classes.
+
+\begin{table}[h]
+    \centering
+    \begin{tabular}{|c|c|c|}
+    \hline
+    \textbf{Layer} & \textbf{Input $\rightarrow$ Output} & \textbf{Details} \\
+    \hline
+    Linear & in\_features $\rightarrow$ 256 & Fully connected layer \\
+    LayerNorm & 256 & Normalization \\
+    SiLU & 256 & Activation \\
+    Dropout & 256 & $p=0.25$ \\
+    \hline
+    Linear & 256 $\rightarrow$ 512 & Fully connected layer \\
+    LayerNorm & 512 & Normalization \\
+    SiLU & 512 & Activation \\
+    Dropout & 512 & $p=0.25$ \\
+    \hline
+    Linear & 512 $\rightarrow$ 512 & Fully connected layer \\
+    LayerNorm & 512 & Normalization \\
+    SiLU & 512 & Activation \\
+    Dropout & 512 & $p=0.25$ \\
+    \hline
+    Linear & 512 $\rightarrow$ num\_classes & Output classifier \\
+    \hline
+    \end{tabular}
+    \caption{Architecture of the classification head.}
+    \label{tab:classification-head}
+\end{table}
+    
+All models were initialized with weights pre-trained on ImageNet1k and fine-tuned on our lung nodule classification dataset. The training process utilized the Adam optimizer \cite{kingma2017adam} with a learning rate of $1e^{-4}$, a batch size of 8, and a harsh weight decay of $1e^{-3}$. A cosine annealing learning rate scheduler was employed to adjust the learning rate dynamically during training. The Focal Loss function was used to guide the optimization process, reflecting the binary nature of the classification task.
+
+\subsection{Train-time Augmentations}
+To enhance the robustness and generalization capabilities of our classification models, we applied a series of data augmentations during training. These augmentations are designed to simulate the variability encountered in real-world clinical settings, thereby reducing overfitting and improving the model's ability to generalize to unseen data. The specific augmentations applied are as follows:
+\begin{itemize}
+    \item Horizontal \& Vertical Flips: Each image has a 50\% chance of being flipped horizontally and a 50\% chance of being flipped vertically. This augmentation helps the model learn invariance to orientation, which is particularly relevant in medical imaging where anatomical structures can appear in various orientations.
+    \item Random Brightness and Contrast: Each image has a 50\% chance of having its brightness and contrast randomly adjusted. Brightness is modified by a factor between -0.1 and +0.1, while contrast is adjusted by a factor between 0.9 and 1.1. This augmentation accounts for differences in imaging protocols and equipment, helping the model to generalize across varying image qualities.
+    \item Contrast Limited Adaptive Histogram Equalization (CLAHE): Each image has a 30\% chance of being processed with CLAHE. This technique enhances local contrast and improves the visibility of structures in areas that are too dark or too bright, which is particularly useful in medical images where subtle features can be critical for diagnosis \cite{mishra2021clahe}.
+    \item Center shifting: Each image gets randomly shifted of $\pm 5$ pixels in both and y directions. This augmentation simulates slight misalignments that can occur during image acquisition, helping the model to become more robust to positional variations.
+\end{itemize}
 
 \section{Explainability Methods}
 % Describe how are we using the adapted CAM methods, which layers we're targeting and an example of expected output.

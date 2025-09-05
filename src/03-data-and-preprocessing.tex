@@ -54,7 +54,7 @@ To empirically validate the effectiveness of the resampling step, an ablation st
     \item \textbf{Baseline:} The model trained on the original dataset without any resampling.
     \item \textbf{Resampled:} The model trained on the dataset after applying the resampling step.
 \end{itemize}
-For this experiments we used the EfficientNetV2-S backbone and the results of this ablation study are presented in Figure \ref{fig:resampling-ablation}.
+For this experiments we used the EfficientNetV2-S backbone \cite{tan2020efficientnet} and the results of this ablation study are presented in Figure \ref{fig:resampling-ablation}.
 \input {figures/resampling-ablation.tex}
 As we can see from the results, the resampling step has a significant positive impact on the model's performance, particularly at higher IoU thresholds. This demonstrates the importance of having a consistent spatial resolution across all scans, validating the effectiveness of the resampling step in the preprocessing pipeline.
 
@@ -72,7 +72,7 @@ After a brief analysis became apparent that a significant portion of the extract
 
 \input{figures/non-visible-nodule.tex}
 
-The strategy of extracting every 2D slice from a 3D volumetric bounding box is susceptible to annotation inaccuracies. Volumetric annotations are rarely perfect, often including slices at the superior and inferior extremes where the nodule is barely visible or entirely absent. Training the model on these "empty" or noisy slices can introduce a significant amount of label noise, potentially degrading its performance by forcing it to learn from irrelevant or misleading examples.
+The strategy of extracting every 2D slice from a 3D volumetric bounding box is susceptible to annotation inaccuracies. Volumetric annotations are rarely perfect, often including slices at the superior and inferior extremes where the nodule is barely visible or entirely absent. Training the model on these ``empty" or noisy slices can introduce a significant amount of label noise, potentially degrading its performance by forcing it to learn from irrelevant or misleading examples.
 
 To mitigate this, a dataset pruning strategy was developed to selectively remove these low-information slices. Several approaches were investigated to identify and remove them in a principled manner.
 
@@ -240,3 +240,29 @@ To conduct this study we used the Faster R-CNN model with an EfficientNetV2-S ba
 
 We can clearly see the impact that the 2.5D approach has on the model's performance, with a significant increase in Average Precision across all IoU thresholds when using the three-channel input representation. This demonstrates the value of incorporating local volumetric context into a 2D detection framework, validating the effectiveness of the 2.5D approach for pulmonary nodule detection. Given these results, the 2.5D three-channel input representation is adopted as the standard input format for all subsequent experiments in this thesis.
 
+\section{Classification Dataset}
+For the classification task, we derive a dataset from the DLCSD24 dataset, the only one of the two that contains both benign and malignant nodule annotations.
+Each patch is labeled according to the malignancy of the nodule it contains, resulting in a binary classification problem (benign vs malignant).
+The dataset is constructed by extracting patches around each annotated nodule, ensuring that the nodule is centered within the patch. Before any extraction takes place, each CT-Scan undergoes the same preprocessing pipeline described in Section \ref{sec:preprocessing}, including resampling to a uniform voxel size and HU clipping.
+The classes of this dataset are highly imbalanced, with a ratio of approximately 1:10 between benign and malignant nodules. To address this imbalance during training, we employ an oversampling strategy, where benign nodules are cloned a number of times in the dataset to match the number of malignant nodules. This approach help to ensure that the model is exposed to a balanced representation of both classes during training, which is crucial to prevent bias towards the majority class and to improve the model's ability to generalize to unseen data.
+
+\subsection{Additional Preprocessing for Classification}
+In addition to the preprocessing steps outlined in Section~\ref{sec:preprocessing}, the classification dataset requires further preprocessing to ensure that the input patches are of a consistent size and format suitable for training a classification model.
+
+\subsubsection{Panning and Resizing}
+The classification dataset is constructed by extracting zoomed-out patches centered around each annotated nodule. The reason behind this choice is to provide the classification model with sufficient contextual information about the nodule's surroundings, and to ensure that the nodule is fully contained within the patch, accounting for potential annotation's inaccuracies. The size of these patches is determined based on the specific nodule size, ensuring that smaller nodules are not lost in overly large patches, while larger nodules are fully captured.
+To achieve this, we first determine the bounding box of each nodule based on its annotation. We then expand this bounding box by 80\% in both width and height to create a zoomed-out view that includes surrounding tissue.
+This expansion factor was chosen empirically to balance the need for context with the desire to keep the nodule as the focal point of the patch.
+An important choice is the aspect ratio of the extracted patches. In this work, we experimented with both square patches (1:1 aspect ratio) and by keeping the original aspect ratio of the bounding box. The importance of this choice is due the need of resizing the extracted patches to a fixed size, a necessary step due to the presence of a fully-connected layer at the end of the CNN architecture. Such resizing, would introduce a distortion in the nodule's shape if the original aspect ratio is preserved -- due its variability --, a problem that is avoided by using square patches. However, this comes at the cost of potentially including a significant amount of irrelevant background in the patch, especially for nodules with extreme aspect ratios. 
+To decide which approach to use, we conducted an ablation study.
+
+\paragraph{Ablation Study Design:}
+To empirically validate the impact of patch aspect ratio on classification performance, an ablation study was designed. The performance of the classification model will be compared across two experimental conditions:
+\begin{itemize}
+    \item \textbf{Square Patches:} The model trained using square patches (1:1 aspect ratio) resized to a fixed size of $512\times512$ pixels.
+    \item \textbf{Original Aspect Ratio Patches:} The model trained using patches that preserve the original aspect ratio of the bounding box, resized to a fixed size of $512\times512$ pixels. 
+\end{itemize}
+
+%results of the ablation study
+
+A padding approach has been considered to resize the original aspect ratio patches to a square shape without distortion, by adding black borders to the shorter side of the patch. However, this approach was ultimately not adopted as smaller nodules would end up being surrounded by a significant amount of black space, and most of the model's ``attention'' would be focused on this irrelevant area, hindering its ability to learn meaningful features from the nodule itself.    
