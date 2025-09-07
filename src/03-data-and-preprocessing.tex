@@ -262,7 +262,9 @@ To empirically validate the impact of patch aspect ratio on classification perfo
     \item \textbf{Square Patches:} The model trained using square patches (1:1 aspect ratio) resized to a fixed size of $512\times512$ pixels.
     \item \textbf{Original Aspect Ratio Patches:} The model trained using patches that preserve the original aspect ratio of the bounding box, resized to a fixed size of $512\times512$ pixels. 
 \end{itemize}
+The study is conducted using the ConvNeXt-Tiny backbone \cite{liu2022convnext} and the results are presented in Table \ref{tab:ablation-patches}.
+\input{tables/ablation_patches.tex}
 
-%results of the ablation study
+From this study it is not immediatly clear which approach is superior, hence there is not a statistically significant difference between the two methods. However, the square patches approach was ultimately chosen, as an eventual XAI analysis would be easier to interpret without the distortion introduced by the original aspect ratio patches.
 
 A padding approach has been considered to resize the original aspect ratio patches to a square shape without distortion, by adding black borders to the shorter side of the patch. However, this approach was ultimately not adopted as smaller nodules would end up being surrounded by a significant amount of black space, and most of the model's ``attention'' would be focused on this irrelevant area, hindering its ability to learn meaningful features from the nodule itself.    
