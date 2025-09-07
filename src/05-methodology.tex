@@ -211,10 +211,11 @@ The expected output is an interpretable visualization. To produce this, the raw 
 \subsection{Quantitative Evaluation of CAM Methods}
 \label{subsec:xai_evaluation}
 
-A purely visual inspection of heatmaps is subjective and insufficient for a rigorous comparison of explainability methods. To objectively and quantitatively compare the faithfulness of the different CAM techniques, there are several established "games" or evaluation protocols in the literature \cite{selvaraju2019gradcam,chattopadhay_2018gradcam++,wang2020score}. In this work, we noticed a significant amount of noise in the generated heatmaps, likely due to the inherent complexity of the detection task and the scarcity of annotated data.
-To mitigate this, we designed and implemented a novel evaluation protocol called the "\textit{Inverse Distance Game}", inspired by the "Segmentation Game" proposed in \cite{chattopadhay_2018gradcam++}.
+A purely visual inspection of heatmaps is subjective and insufficient for a rigorous comparison of explainability methods. To objectively and quantitatively compare the faithfulness of the different CAM techniques, there are several established ``games" or evaluation protocols in the literature \cite{selvaraju2019gradcam,chattopadhay_2018gradcam++,wang2020score}. In this work, we noticed a significant amount of noise in the generated heatmaps, likely due to the inherent complexity of the detection task and the scarcity of annotated data.
+To mitigate this, we designed and implemented a novel evaluation protocol called the ``\textit{Inverse Distance Game}", inspired by the "Segmentation Game" proposed in \cite{chattopadhay_2018gradcam++}.
 
 The goal of this game is to measure how well the close are the highest activation scores of a CAM's explanation are to the actual, ground-truth location of the nodule. To do so we proceed as described in Algorithm \ref{alg:distance-game}.
+\newline
 
 \begin{algorithm}[H]
     \caption{The Inverse Distance Game}
@@ -257,7 +258,7 @@ The goal of this game is to measure how well the close are the highest activatio
     score $\gets 1.0 - \text{Mean}(Distances_{norm})$\;
     \Return{score}\;
 \end{algorithm}
-
+\,\\\,\\
 A higher score in the Inverse Distance Game indicates that the CAM method is more faithful, as it means that the regions of highest activation are closer to the actual nodule location. This quantitative metric allows for an objective comparison between different CAM techniques, providing insights into their effectiveness in explaining the model's predictions in the context of lung nodule detection.
 
 Since the distance is normalized by the image diagonal for scale invariance, the final score ranges from 0 to 1, where a score of 1 indicates perfect alignment (all top activated pixels are exactly on the ground truth bounding box), and a score of 0 indicates that the top activated pixels are as far as possible from the bounding box (i.e., at the opposite corners of the image).
