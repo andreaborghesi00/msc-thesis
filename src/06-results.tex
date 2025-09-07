@@ -4,7 +4,7 @@
 %Present the results of the object detectors, making sure that each setup is clearly defined: architecture, backbone, training hyperparameters, eventual pretraining, etc.
 %For each setup we present the performance using AP and AR metrics, their inference times, and the GPU memory usage.
 
-To quantitatively assess the performance of our models and the viability of the proposed training strategies, we evaluated each model configuration using the mean Average Precision (mAP) metric, a standard for object detection tasks. We report mAP at an Intersection over Union (IoU) threshold of 0.50 (mAP@.50), which is a common benchmark, as well as the average mAP over IoU thresholds from 0.50 to 0.95 in steps of 0.05 (mAP@.50:.95) to provide a more comprehensive assessment of localization accuracy. Additionally, we include mAP at a lower IoU of 0.10 (mAP@.10) to gauge the models' ability to detect nodules even with less precise bounding boxes.
+To quantitatively assess the performance of our models and the viability of the proposed training strategies, we evaluated each model configuration using the mean Average Precision (mAP) metric, a standard for object detection tasks. We report mAP at an Intersection over Union (IoU) threshold of 0.50 (mAP@50), which is a common benchmark, as well as the average mAP over IoU thresholds from 0.50 to 0.95 in steps of 0.05 (mAP@50:95) to provide a more comprehensive assessment of localization accuracy. Additionally, we include mAP at a lower IoU of 0.10 (mAP@10) to gauge the models' ability to detect nodules even with less precise bounding boxes.
 
 \subsubsection{NLST Pretraining Results}
 First, we present the results of the models trained on the NLST dataset, which served as a pretraining step before fine-tuning on the DLCS dataset.
@@ -38,6 +38,45 @@ Unfortunately, the results of this fine-tuning approach are slightly worse than 
 This might be due to the fact that the NLST dataset is not large enough. Which is a common issue when fine-tuning on a small dataset, as the model might forget useful general features learned from the ImageNet dataset. Despite this problem can be mitigated by using a low learning rate and by freezing some of the layers -- both of which were done in this case -- it is yet a possibility when the dataset is small compared to its complexity. 
 On a different note we can see that in this experimental setup the Faster R-CNN performs bettern than RetinaNet on every backbone, with the EfficientNetV2S backbone still being the best performing one.
 
+\subsubsection{Discussion}
+
+The collective results from the NLST pretraining, direct DLCS training, and fine-tuning experiments provide a comprehensive view of the models' capabilities and reveal several key insights into the challenges of lightweight lung nodule detection.
+
+\paragraph{The Superiority of Faster R-CNN on Complex Data.}
+A clear and consistent trend emerges when comparing the model architectures across the two datasets. On the simpler NLST dataset, which features larger and more distinct nodules, the lightweight, one-stage RetinaNet performed comparably or even slightly better than the more complex two-stage Faster R-CNN. This suggests that for less challenging detection tasks, the additional architectural complexity of Faster R-CNN provides no significant advantage.
+
+However, this trend completely reverses on the more clinically realistic and difficult DLCS dataset. On this more challenging data, Faster R-CNN consistently and significantly outperforms RetinaNet across all backbone configurations (with the exception of MobileNetV2). This finding strongly suggests that the two-stage approach—with its dedicated Region Proposal Network and second-stage refinement—is better equipped to handle the subtleties and lower signal-to-noise ratio inherent in detecting small, indistinct nodules. It is the more robust and suitable architecture for this specific clinical problem.
+
+\paragraph{The Failure of Domain-Specific Pretraining.}
+One of the most surprising outcomes was the ineffectiveness of the pretraining strategy on the NLST dataset. The hypothesis was that pretraining on a large dataset of easier-to-detect nodules would provide a strong, domain-specific feature representation that would boost performance on the more difficult DLCS dataset. The results, however, show the opposite: direct training on DLCS with ImageNet weights yielded slightly better performance than fine-tuning from NLST weights.
+
+This counter-intuitive result is likely attributable to the domain-shift phenomenon and the risk of catastrophic forgetting. The NLST dataset may not be diverse enough or its nodules representative enough of the subtle cases in DLCS. Fine-tuning on a small, complex dataset like DLCS after pretraining on NLST may cause the model to forget the more general and robust low-level features learned from the vast ImageNet dataset. The slight negative impact on performance suggests that, for this specific task, the general-purpose features from ImageNet are more valuable than the specialized features from NLST.
+
+\paragraph{The Optimal Model Configuration.}
+Synthesizing these findings, the best performing model configuration for this task is the Faster R-CNN architecture paired with the EfficientNetV2-S backbone, trained directly on the DLCS dataset using ImageNet pre-trained weights. This configuration achieved the highest overall mAP@50:95 of 0.423.
+
+It is important to contextualize this performance. While a mAP of 0.423 represents a strong academic baseline and validates the viability of the lightweight 2.5D approach, it is not yet sufficient for fully autonomous clinical deployment. However, the high mAP@10 score of 0.745 indicates that the model is effective at identifying the general location of potential nodules, suggesting its immediate promise as a ``second reader" or screening tool to draw a radiologist's attention to suspicious areas, which can then be confirmed by expert review. The performance drop at higher IoU thresholds is a well-known characteristic of object detection on small objects and highlights the remaining challenge in achieving perfect localization.
 
 \section{Explainability Performance Analysis}
 %Discuss the performance of the explainability methods, comparing them based on the segmentation game, performing some statistical analysis on the results.
+
+
+\section{Classification Performance Analysis}
+Here we present the results for the classification task, which has been performed using the DLCSD24 extracted patches. For each model we report the F1-Score for both classes. The results are shown in Table \ref{tab:classification-performances}.
+
+\input{tables/classification-performances.tex}
+
+The results clearly indicate that the ConvNeXt-Tiny architecture achieved markedly superior performance compared to the other models. It obtained the highest F1-Scores for both the malignant class (0.679) and the benign class (0.690). Crucially, these scores are well-balanced, suggesting that the model learned to effectively distinguish between the two classes without significant bias, validating the oversampling strategy for this particular architecture.
+
+The ResNet18 model emerged as the second-best performer, though its scores were substantially lower than those of ConvNeXt-Tiny. It showed a reasonable ability to identify malignant nodules but was less effective on the benign class.
+
+A significant trend was observed among the Densenet121, MobileNetV2, and EfficientNetV2s models. Despite being powerful and efficient architectures, they all exhibited a pronounced performance disparity. While achieving respectable F1-Scores for the benign class (ranging from 0.618 to 0.629), their performance on the malignant class was exceptionally poor (ranging from 0.371 to 0.418). This suggests that, for these specific architectures, even with a balanced training set achieved through oversampling, they failed to learn the complex and possibly more subtle features that characterize malignancy in these cropped patches.
+
+It is important, however, to contextualize these results within the broader goal of clinical applicability. An F1-Score of approximately 0.68, while the best among the tested models, indicates that the task remains challenging with the current limitations and the performance is not yet at a level suitable for direct clinical application. This performance ceiling likely stems from a combination of factors:
+\begin{itemize}
+    \item \textbf{Inherent Task Difficulty:} The morphological features that differentiate benign and malignant nodules can be extremely subtle, even for trained radiologists, especially on 2.5D patches that lack full volumetric context.
+    \item \textbf{Data Limitations:} While oversampling addresses the class count, the absolute number of unique benign nodules is still limited, which can restrict the model's ability to learn a diverse and generalizable set of features.
+    \item \textbf{Architectural Constraints:} The use of lightweight, 2D models is a deliberate choice for efficiency, but it may not be sufficient to capture the complex, three-dimensional patterns necessary for highly accurate classification.
+\end{itemize}
+
+Therefore, these findings should be interpreted not as a definitive solution, but as an informative baseline. They successfully demonstrate the feasibility of the classification task and, most importantly, identify a promising architectural direction (ConvNeXt-Tiny) that significantly outperforms others. 
