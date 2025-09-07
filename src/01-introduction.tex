@@ -36,7 +36,7 @@ To address these research questions, this thesis pursues the following specific 
 \paragraph{O1: Develop a computationally efficient 2D object detection pipeline for lung nodule detection}
 Implement and compare multiple object detection architectures and their variants.
 Design preprocessing pipelines optimized for 2D slice-based analysis, including slice selection algorithms to maximize information content
-Achieve detection performance that demonstrates clinical viability while operating within $<$6GB GPU memory constraints
+Achieve detection performance that demonstrates clinical viability while operating within $<$16GB GPU memory constraints.
 
 \paragraph{O2: Adapt CAM methods for object detection tasks}
 
@@ -47,12 +47,25 @@ Implement end-to-end explainable object detection pipeline that provides both pr
 \paragraph{O3: Demonstrate integration of detection and classification with explainability}
 
 Extend the object detection pipeline with a classification head for detected regions
-Apply explainability methods to both detection and classification components
-Evaluate the clinical utility of multi-stage explainable predictions
+Apply explainability methods to the detection components
 
 \paragraph{O4: Provide comprehensive experimental validation}
 Evaluate the complete system on the established medical imaging datasets NLST \cite{nlst_data}, DLCSD24 \cite{tushar2025ailunghealthbenchmarking}.
-Compare performance against relevant baselines and alternative approaches
-Analyze computational efficiency and practical deployment considerations
+% Compare performance against relevant baselines and alternative approaches
+% Analyze computational efficiency and practical deployment considerations
 
 \section{Thesis Structure}
+\label{sec:thesis_structure}
+
+This thesis is organized into six chapters, each building upon the last to present a comprehensive account of the research undertaken. The structure is designed to guide the reader from the foundational concepts to the final conclusions in a logical and coherent manner.
+
+\paragraph{Chapter 2: Background} provides the necessary theoretical foundation for this work. It begins with a detailed overview of the fundamentals of object detection, discussing the distinctions between one-stage and two-stage detectors, as well as anchor-based and anchor-free methods. It then delves into the specifics of the RetinaNet and Faster R-CNN architectures, and formally defines the standard evaluation metrics of Average Precision and Average Recall. The second half of the chapter introduces the field of Explainable AI (XAI) for computer vision, focusing on Class Activation Maps (CAMs) and critically analyzing their inherent limitations when applied to object detection, thereby motivating the adaptations developed in this thesis.
+
+\paragraph{Chapter 3: Data and Preprocessing} details the datasets and the extensive data preparation pipeline that form the empirical basis of this research. It introduces the two primary datasets used, the National Lung Screening Trial (NLST) and the Duke Lung Cancer Screening Dataset 2024 (DLCSD24). The chapter provides a step-by-step description of the preprocessing workflow, including the slice selection and pruning algorithms designed to handle annotation noise. This chapter also details the design of the various ablation studies, including those for dataset pruning and the 2.5D input representation. Finally, it describes the methodology for deriving the specialized dataset used for the subsequent nodule classification task.
+
+
+\paragraph{Chapter 4: Methodology} presents the core experimental design of this research. It outlines the object detection and classification architectures, the choice of backbones, and the specific training procedures and hyperparameters. Furthermore, it provides a comprehensive description of the explainability methods, including the implementation details of the adapted CAM techniques and the design of the ``Inverse Distance Game" used for their quantitative evaluation.
+
+\paragraph{Chapter 5: Results} presents the empirical findings of the experiments described in the previous chapter. This chapter is divided into three main parts: an analysis of the object detection performance; a quantitative evaluation of the explainability methods based on the Inverse Distance Game; and an analysis of the classification performance on the benign versus malignant nodule task.
+
+\paragraph{Chapter 6: Conclusions} concludes the thesis by summarizing the key contributions and findings. It revisits the research questions posed in this introduction to discuss how they were addressed. The chapter also acknowledges the limitations of the study and, based on these, proposes several directions for future research.
