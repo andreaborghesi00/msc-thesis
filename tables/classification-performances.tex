@@ -1,0 +1,18 @@
+\begin{table}[htbp]
+    \centering
+    \label{tab:classification-performances}
+    \begin{tabular}{lcc}
+        \toprule
+        % \rowcolor{gray!20} % Highlight the header row
+        \textbf{Model} & \textbf{F1-Score (Malignant)} & \textbf{F1-Score (Benign)} \\
+        \midrule
+        Densenet121      & 0.371 & 0.618 \\
+        MobileNet        & 0.395 & 0.629 \\
+        ResNet18         & 0.608 & 0.592 \\
+        EfficientNetV2s  & 0.418 & 0.620 \\
+        \rowcolor{yellow!20}
+        ConvNext-Tiny         & 0.679 & 0.690 \\
+        \bottomrule
+    \end{tabular}
+    \caption{F1-Scores for Lung Nodule Classification Across Different Models}
+\end{table}
