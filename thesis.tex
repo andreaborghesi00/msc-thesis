@@ -8,7 +8,8 @@
 \fontsize{11.5pt}{14pt}\selectfont
  
 \includepdf{thesistitlepage/titlepage.pdf}
-\frontmatter
+\cleardoublepage
+\pagenumbering{gobble}
 \chapter*{Abstract}
     The early detection of pulmonary nodules through Computed Tomography (CT) screening is crucial for improving patient outcomes in lung cancer, yet the manual review process is a significant burden on radiologists. While Deep Learning models offer a promising solution, state-of-the-art 3D approaches are often computationally expensive and lack transparency, hindering their widespread adoption.
 
@@ -20,6 +21,8 @@
 
     Ultimately, this research validates the feasibility of computationally accessible 2D methods for lung nodile detection and contributes a framework for adapting and evaluating explainability techniques in object detection. The findings identify Eigen-CAM as a practical and effective method for providing trustworthy visual explanations in this medical imaging context.
 
+\frontmatter
+\cleardoublepage
 \tableofcontents
 
 \mainmatter
