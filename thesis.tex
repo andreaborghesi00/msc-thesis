@@ -9,9 +9,21 @@
  
 \includepdf{thesistitlepage/titlepage.pdf}
 \frontmatter
+\chapter*{Abstract}
+    The early detection of pulmonary nodules through Computed Tomography (CT) screening is crucial for improving patient outcomes in lung cancer, yet the manual review process is a significant burden on radiologists. While Deep Learning models offer a promising solution, state-of-the-art 3D approaches are often computationally expensive and lack transparency, hindering their widespread adoption.
+
+    This thesis addresses these challenges by developing and evaluating a lightweight, 2D-based pipeline for the detection and explainability of lung nodules in CT scans. The core of the pipeline is a Faster R-CNN architecture, systematically evaluated with various efficient backbones. To mitigate the loss of volumetric information inherent in a 2D approach, a 2.5D input representation that stacks adjacent slices is employed. A secondary classification model is also developed to characterize detected nodules as benign or malignant.
+
+    A central contribution of this work lies in adapting and quantitatively evaluating gradient-free Class Activation Map (CAM) methods for the task of object detection. A custom similarity metric was designed to make Score-CAM and Smoothed Score-CAM (SS-CAM) compatible with the structured outputs of the detector. The faithfulness of these methods, alongside Eigen-CAM, was objectively measured using a novel ``Inverse Distance Game" protocol.
+
+    The results demonstrate that the lightweight detection pipeline establishes a strong performance baseline, with the EfficientNetV2-S backbone proving most effective. For explainability, the quantitative evaluation reveals that Eigen-CAM provides significantly more faithful and well-localized explanations than the adapted Score-CAM and SS-CAM variants, while being orders of magnitude more computationally efficient.
+
+    Ultimately, this research validates the feasibility of computationally accessible 2D methods for lung nodile detection and contributes a framework for adapting and evaluating explainability techniques in object detection. The findings identify Eigen-CAM as a practical and effective method for providing trustworthy visual explanations in this medical imaging context.
+
 \tableofcontents
 
-\mainmatter 
+\mainmatter
+
 \include{src/01-introduction}
 \include{src/02-background}
 \include{src/03-data-and-preprocessing}
