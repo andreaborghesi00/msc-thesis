@@ -60,6 +60,42 @@ It is important to contextualize this performance. While a mAP of 0.423 represen
 \section{Explainability Performance Analysis}
 %Discuss the performance of the explainability methods, comparing them based on the segmentation game, performing some statistical analysis on the results.
 
+To quantitatively evaluate and compare the faithfulness of the adapted explainability methods, the "Inverse Distance Game" (described in Section \ref{subsec:xai_evaluation}) was run on a test set of 819 samples. This section presents the performance of Eigen-CAM, Score-CAM, and Smoothed Score-CAM (SS-CAM), analyzing both their localization accuracy and their computational feasibility.
+
+It is important to note a key aspect of the evaluation protocol: if the object detection model failed to produce any prediction for a given sample, the CAM methods that depend on a baseline output (Score-CAM and SS-CAM) could not be applied. In these cases of detection failure, a score of 0 was assigned to all methods to ensure a fair and consistent comparison across the entire test set.
+
+The comparative results are summarized in Table \ref{tab:xai-inverse-distance} and visualized in the score distribution histogram in Figure \ref{fig:xai-inverse-distance}.
+
+\input{tables/xai-inverse-distance.tex}
+
+\input{figures/xai-inverse-distance-hist.tex}
+
+The quantitative results reveal the clear winner being Eigen-CAM significantly outperforming both Score-CAM and SS-CAM.
+
+To provide a qualitative illustration of these quantitative findings, Figure \ref{fig:xai-qualitative-example} presents a side-by-side comparison of the three methods on a representative sample from the test set. This visual evidence helps to contextualize the numerical scores and provides insight into the behavior of each method.
+\input{figures/xai-qualitative-example.tex}
+
+\paragraph{Localization Performance.}
+As shown in Table \ref{tab:xai-inverse-distance}, Eigen-CAM achieved a mean Inverse Distance Score of 0.90, substantially higher than the scores of 0.79 for both Score-CAM and SS-CAM. The histogram in Figure \ref{fig:xai-inverse-distance} provides deeper insight into this difference. The distribution for Eigen-CAM is strongly skewed to the right, with a large peak near a score of 1.0. This indicates that for a majority of the test samples, Eigen-CAM's explanation was almost perfectly centered on the ground-truth nodule. In contrast, the distributions for Score-CAM and SS-CAM are much flatter and centered in the 0.7-0.8 range, suggesting their localization is more variable and less precise.
+
+An explanation for this performance gap likely lies in the nature of transfer learning and where each CAM method sources its information. Our detection model is a hybrid: it combines a powerful, pre-trained backbone (EfficientNetV2-S) with randomly initialized, task-specific detection heads that are trained from scratch on our relatively small dataset.
+Eigen-CAM operates directly on the activation maps of the FPN, which is the final stage of the backbone. It therefore leverages the rich, robust, and well-generalized features learned from the massive ImageNet dataset. It is, in effect, explaining the output of the most ``mature" part of the network.
+Score-CAM and SS-CAM, conversely, must evaluate the model as a whole. They rely on the final output after the data has passed through the less-mature RPN and second-stage heads. These heads, trained only on our limited dataset, may have learned a less stable or ``noisier" function. The performance of these methods is therefore entirely dependent on the custom \texttt{FasterRCNNBoxScoreTarget} metric's ability to interpret these potentially noisy final predictions.
+ 
+From this perspective, Eigen-CAM's success stems from its ability to bypass the potential instability of the task-specific heads and our custom scoring logic. Providing a direct view into the robust feature extractor, which, for a well-trained model, is sufficient to identify the object of interest.
+
+\paragraph{Computational Cost and Practicality.}
+The performance difference is further magnified when considering the immense disparity in computational cost:
+\begin{itemize}
+    \item \textbf{Eigen-CAM:} The entire test set was processed in approximately \textbf{13 minutes}.
+    \item \textbf{Score-CAM:} Required approximately \textbf{5 hours} to complete.
+    \item \textbf{SS-CAM:} Required approximately \textbf{60 hours}, even with a reduced number of samples (n=10 instead of the conventional n=35).
+\end{itemize}
+
+This dramatic difference in runtime has significant practical implications. Eigen-CAM is fast enough to be integrated into an interactive clinical workflow. In contrast, Score-CAM is an offline-only method, and SS-CAM is computationally prohibitive for anything beyond small-scale research experiments (given the current hardware limitations). The fact that the 60-hour SS-CAM procedure offered no performance benefit over the 5-hour Score-CAM suggests that for this task, the smoothing provided by the additional samples was insufficient to overcome the inherent noise of the scoring method. The initial rationale for SS-CAM to be included in this study was to reduce noise originated from such a small dataset, but it seems that this was not the case.
+
+Based on this analysis, Eigen-CAM emerges as the unequivocally superior method for this specific application. It provides more faithful and reliable explanations, as measured by the Inverse Distance Game, while being orders of magnitude more computationally efficient than the adapted Score-CAM variants. For the task of explaining a lightweight, single-class object detector, the simplicity and directness of Eigen-CAM prove to be a significant advantage.
+
 
 \section{Classification Performance Analysis}
 Here we present the results for the classification task, which has been performed using the DLCSD24 extracted patches. For each model we report the F1-Score for both classes. The results are shown in Table \ref{tab:classification-performances}.
