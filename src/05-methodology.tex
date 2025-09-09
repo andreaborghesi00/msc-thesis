@@ -28,7 +28,7 @@ This approach significantly reduces GPU memory usage and accelerates training wi
 
 The following hyperparameters were kept constant for all experiments to ensure a fair comparison.
 Due to the pretrained nature of every experiment, the learning rate was set to a low value of $10^{-4}$ to avoid catastrophic forgetting, and the batch size was set to $8$ to fit the GPU memory constraints. The training was performed for a maximum of $30$ epochs, with early stopping based on the validation metrics to prevent overfitting and cut down on training time with a patience of $10$ epochs. For the same reason the validation set was used to monitor the training process. And to mitigate some computational time, it was decided to run a validation step every $3$ epochs.
-The optimzer used was AdamW, which is a variant of the Adam optimizer that decouples weight decay from the optimization step, providing better generalization performance in many cases \cite{loshchilov2019decoupled, kingma2017adam}.
+The optimzer used was AdamW, which is a variant of the Adam optimizer that decouples weight decay from the optimization step, providing better generalization performance in many cases \cite{kingma2017adam, loshchilov2019decoupled}.
 
 As for the scheduler used, we opted for a Cosine Annealing scheduler, which graduelly reduces the learning rate over the course of training, allowing for a more fine-tuned convergence towards the end of the training process. We also experimented with Cosine Annealing with Warm Restarts, which periodically resets the learning rate to a higher value, but it often led to failed training runs due to the mixed precision training induced instability, so we decided to stick with the simpler version.
 Lastly, for the DLCSD24, the 3-channels contain the previous, current, and next slice of the analyzed nodule, allowing the model to have a better context of the nodule's surroundings, effectively simulating a 3D input while still using a 2D object detection architecture. We will refer to this approach as 2.5D.
@@ -40,35 +40,36 @@ The experiments were run using \texttt{parallel} to allow queuing multiple train
 \subsection{Loss functions}
 \label{sec:loss_functions}
 A central metric for bounding box quality is the \textit{Intersection over Union} (IoU):
-$$
+\begin{equation}
 \mathrm{IoU}(b, b^\ast) = \frac{\mathrm{area}(b \cap b^\ast)}{\mathrm{area}(b \cup b^\ast)},
-$$
+\end{equation}
 which measures the degree of spatial overlap between a predicted box $b$ and a ground-truth box $b^\ast$.
 Variants such as Generalized IoU (GIoU), Distance IoU (DIoU), and Complete IoU (CIoU) incorporate additional geometric terms to improve optimization stability, particularly when boxes do not overlap \cite{rezatofighi2019giou,zheng2019diou, zheng2021ciou}.
 
 
 Bounding box regression is also commonly evaluated in coordinate space using Minkowski distances.
 The general $p$-norm between two vectors $u,v \in \mathbb{R}^n$ is defined as:
-$$
+\begin{equation}
 \| u - v \|_p = \left( \sum_{j=1}^n |u_j - v_j|^p \right)^{\frac{1}{p}}.
-$$
+\end{equation}
 Special cases include the Manhattan distance ($L_1$ norm, $p=1$):
-$$
+\begin{equation}
 \| u - v \|_1 = \sum_{j=1}^n |u_j - v_j|,
-$$
+\end{equation}
 and the Euclidean distance ($L_2$ norm, $p=2$):
-$$
+\begin{equation}
 \| u - v \|_2 = \sqrt{\sum_{j=1}^n (u_j - v_j)^2}.
-$$
+\end{equation}
 
 In practice, modern detectors often adopt the Smooth-$L_1$ loss \cite{girshick2015fastrcnn} for bounding box regression, which combines the robustness of $L_1$ for large errors with the stability of $L_2$ for small errors:
-$$
+\begin{equation}
 \mathrm{SmoothL1}(x) =
 \begin{cases}
 0.5\,x^2, & \text{if } |x| < 1, \\
 |x| - 0.5, & \text{otherwise}.
 \end{cases}
-$$
+\end{equation}
+
 This formulation reduces sensitivity to outliers while maintaining differentiability at the origin, making it suitable for gradient-based optimization.
 
 As for the classification component, Faster R-CNN employs the standard cross-entropy loss for binary classification tasks, while RetinaNet utilizes the Focal Loss \cite{lin2018focalloss} to address class imbalance by down-weighting easy negatives and focusing training on hard examples.
@@ -79,7 +80,7 @@ In contrast, the Duke Lung Cancer Screening (DLCSD24) dataset represents a more 
 
 To assess the optimal training approach for our challenging DLCSD24 evaluation scenario, we designed an ablation study comparing two training strategies:
 \begin{itemize}
-    \item \textbf{NLST Pretraining}: Models were pretrained on the NLST dataset before being fine-tuned on the DLCSD24 dataset. This approach leverages the larger, more visually distinct nodules in NLST to provide a strong initial feature representation.
+    \item \textbf{NLST Pretraining}: Models were pretrained first on the ImageNet1K dataset, then on NLST and finally fine-tuned on the DLCSD24 dataset. This approach leverages the larger, more visually distinct nodules in NLST to provide a strong initial feature representation.
     \item \textbf{Direct Training on DLCSD24 }: Models were trained directly on DLCSD24 from ImageNet-pretrained weights, without prior exposure to NLST. This strategy aims to adapt the model directly to the more challenging and clinically relevant nodules in DLCSD24.
 \end{itemize}
 
@@ -88,7 +89,7 @@ This comparison allows us to evaluate whether the progressive difficulty approac
 The transfer learning strategy from NLST to DLCSD24 tries to address the large domain gap between a CT dataset and ImageNet1K, where the latter is primarily focused on natural images. Nonetheless it is important to note that pretraining on ImageNet1K is often a standard practice in computer vision as it provides a strong initial feature representation, especially on the first layers of the network that tend to capture low-level features such as edges, textures, and basic shapes, all of which are easily transferable across different domains.
 
 
-\section{Object Detection Train-time Augmentations}
+\section{Object Detection Train-time Data Augmentations}
 \label{sec:augmentation}
 To further enhance the robustness of our models and improve their generalization capabilities, we apply a series of data augmentations during training. These augmentations include random rotations, flips, and intensity variations, which help to simulate the variability encountered in real-world clinical settings. By exposing the model to a diverse set of augmented images, we aim to reduce overfitting and improve the model's ability to generalize to unseen data. These augmentations are applied on-the-fly during training, ensuring that the model sees a different version of the data in each epoch.
 
@@ -138,11 +139,11 @@ Finally, a separate classification head allows for a more efficient use of compu
 Since each data sample at our disposal inherently provides low information due to its small size, we opted for lightweight architectures to mitigate overfitting risks.
 Specifically we experimented with:
 \begin{itemize}
-    \item \textbf{EfficientNetV2-S:} A modern architecture that balances performance and efficiency, making it suitable for tasks with limited data \cite{tan2020efficientnet}.
+    \item \textbf{EfficientNetV2-S:} A modern architecture that balances performance and efficiency, making it suitable for tasks with limited data.
     \item \textbf{MobileNetV2:} Known for its lightweight design, MobileNetV2 is optimized for mobile and embedded applications, making it a good fit for scenarios where computational resources are constrained \cite{sandler2019mobilenetv2}.
     \item \textbf{ResNet18:} A shallower variant of the ResNet family, which retains the benefits of residual connections while being less prone to overfitting on small datasets \cite{he2015resnet}.
     \item \textbf{DenseNet121:} A compact architecture that promotes feature reuse through dense connections, which can be beneficial for learning from limited data \cite{huang2018densenet121}.
-    \item \textbf{ConvNeXt-Tiny:} A modern architecture that incorporates design principles from both CNNs and Transformers, offering a balance between performance and efficiency \cite{liu2022convnext}.
+    \item \textbf{ConvNeXt-Tiny:} A modern architecture that incorporates design principles from both CNNs and Transformers, offering a balance between performance and efficiency.
 \end{itemize}
 To each of these architectures, we appended a custom classification head described in Table \ref{tab:classification-head}. This head consists of a series of fully connected layers interleaved with Layer Normalization, SiLU activation functions \cite{elfwing2017silu}, and Dropout for regularization. The final layer outputs logits corresponding to the two classes.
 
@@ -174,9 +175,9 @@ To each of these architectures, we appended a custom classification head describ
     \label{tab:classification-head}
 \end{table}
     
-All models were initialized with weights pre-trained on ImageNet1K and fine-tuned on our lung nodule classification dataset. The training process utilized the Adam optimizer \cite{kingma2017adam} with a learning rate of $10^{-4}$, a batch size of 8, and a harsh weight decay of $10^{-3}$. A cosine annealing learning rate scheduler was employed to adjust the learning rate dynamically during training. The Focal Loss function was used to guide the optimization process, reflecting the binary nature of the classification task.
+All models were initialized with weights pre-trained on ImageNet1K and fine-tuned on our lung nodule classification dataset. The training process utilized the Adam optimizer with a learning rate of $10^{-4}$, a batch size of 8, and a harsh weight decay of $10^{-3}$. A cosine annealing learning rate scheduler was employed to adjust the learning rate dynamically during training. The Focal Loss function was used to guide the optimization process, reflecting the binary nature of the classification task.
 
-\section{Classification Train-time Augmentations}
+\section{Classification Train-time Data Augmentations}
 To enhance the robustness and generalization capabilities of our classification models, we applied a series of data augmentations during training. These augmentations are designed to simulate the variability encountered in real-world clinical settings, thereby reducing overfitting and improving the model's ability to generalize to unseen data. The specific augmentations applied are as follows:
 \begin{itemize}
     \item \textbf{Horizontal \& Vertical Flips}: Each image has a 50\% chance of being flipped horizontally and a 50\% chance of being flipped vertically. This augmentation helps the model learn invariance to orientation, which is particularly relevant in medical imaging where anatomical structures can appear in various orientations.
@@ -195,7 +196,7 @@ To provide insight into the model's decision-making process we employ several gr
 \subsection{CAM Implementation and Application}
 \label{subsec:cam_implementation}
 
-The generation of a CAM explanation requires targeting a specific layer within the network from which to extract activation maps. For all CAM methods used in this work, in this study cases it is usual to select the final feature map produced by the Feature Pyramid Network (FPN) component. This layer contains rich semantic information but at a reduced spatial resolution. To account for this, we compute the CAM also at the second to last FPN layer, which has a higher spatial resolution but less semantic abstraction. 
+The generation of a CAM explanation requires targeting a specific layer within the network from which to extract activation maps. For all CAM methods used in this work, it is usual for cases similar to our study, to select the final feature map produced by the Feature Pyramid Network (FPN) component. This layer contains rich semantic information but at a reduced spatial resolution. To account for this, we compute the CAM also at the second to last FPN layer, which has a higher spatial resolution but less semantic abstraction. 
 Finally, we average the two resulting heatmaps once they have been upsampled to the original input size.
 
 The process for generating an explanation for a given input image is as follows:
@@ -210,10 +211,10 @@ The expected output is an interpretable visualization. To produce this, the raw 
 \subsection{Quantitative Evaluation of CAM Methods}
 \label{subsec:xai_evaluation}
 
-A purely visual inspection of heatmaps is subjective and insufficient for a rigorous comparison of explainability methods. To objectively and quantitatively compare the faithfulness of the different CAM techniques, there are several established ``games" or evaluation protocols in the literature \cite{selvaraju2019gradcam,chattopadhay_2018gradcam++,wang2020score}. In this work, we noticed a significant amount of noise in the generated heatmaps, likely due to the inherent complexity of the detection task and the scarcity of annotated data.
-To mitigate this, we designed and implemented a novel evaluation protocol called the ``\textit{Inverse Distance Game}", inspired by the "Segmentation Game" proposed in \cite{chattopadhay_2018gradcam++}.
+A purely visual inspection of heatmaps is subjective and insufficient for a rigorous comparison of explainability methods. To objectively and quantitatively compare the faithfulness of the different CAM techniques, there are several established ``games" or evaluation protocols in the literature \cite{chattopadhay_2018gradcam++, selvaraju2019gradcam,wang2020score}. In this work, we noticed a significant amount of noise in the generated heatmaps, likely due to the inherent complexity of the detection task and the scarcity of annotated data.
+To mitigate this, we designed and implemented a novel evaluation protocol called the ``\textit{Inverse Distance Game}", inspired by the ``Segmentation Game".
 
-The goal of this game is to measure how well the close are the highest activation scores of a CAM's explanation are to the actual, ground-truth location of the nodule. To do so we proceed as described in Algorithm \ref{alg:distance-game}.
+The goal of this game is to measure how close are the highest activation scores of a CAM's explanation to the actual ground-truth location of the nodule. To do so we proceed as described in Algorithm \ref{alg:distance-game}.
 \newline
 
 \begin{algorithm}[H]
@@ -261,9 +262,9 @@ The goal of this game is to measure how well the close are the highest activatio
 A higher score in the Inverse Distance Game indicates that the CAM method is more faithful, as it means that the regions of highest activation are closer to the actual nodule location. This quantitative metric allows for an objective comparison between different CAM techniques, providing insights into their effectiveness in explaining the model's predictions in the context of lung nodule detection.
 
 Since the distance is normalized by the image diagonal for scale invariance, the final score ranges from 0 to 1, where a score of 1 indicates perfect alignment (all top activated pixels are exactly on the ground truth bounding box), and a score of 0 indicates that the top activated pixels are as far as possible from the bounding box (i.e., at the opposite corners of the image).
-Since a low score (below 0.5) is rather unlikely, we generally consider a high score to be anything above $\sim$0.85. To penalize even more wrong explanations, we also experimented with diffent $p$ values for the Minkowski distance, as shown in Figure \ref{fig:minkowski} and decided to use $p=6$ for our experiments.
+Since a low score (below 0.5) is rather unlikely, we generally consider a high score to be anything above $\sim$0.85. To penalize even more wrong explanations, we also experimented with diffent $p$ values for the Minkowski distance and decided to use $p=6$ for our experiments, as for higher values we started to see diminishing returns and encountered numerical instability issues. 
 
-\input{figures/minkowski.tex}
+% \input{figures/minkowski.tex}
 
 
 

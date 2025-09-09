@@ -20,7 +20,7 @@ Designing AI-based tools for lung nodule detection in CT scans involves navigati
 The most immediate challenge stems from the computational demands of state-of-the-art approaches. While three-dimensional convolutional neural networks can theoretically exploit the full volumetric context of CT scans to improve detection accuracy, their practical implementation reveals significant limitations. These models typically require substantial GPU memory, often exceeding 16GB, and demand extensive training times that can extend to days or weeks, even on high-end hardware such as A100 GPUs with 40GB of memory \cite{wu2018systematicanalysisstateoftheart3d}. While inference times for individual patient scans may be manageable, the development and iterative improvement of such models becomes prohibitively expensive and time-consuming. 
 Such computational requirements create a fundamental mismatch with research development processes, where rapid experimentation and iteration are crucial for advancing the field, especially in small research groups with limited access to high-end hardware.
 This computational constraint naturally leads to consideration of more efficient 2D approaches, which process individual CT slices rather than entire volumes. This approach significantly reduces memory requirements and training times, allowing for more agile development cycles, at the cost of losing correlations between slices that may be crucial for accurate nodule detection. Regardless, a 2D approach allows for better accessbility to healthcare professionals, as it can be run on standard laptops or workstations without the need for high-end GPUs.
-Equally critical, yet often overlooked in the technical literature, is the challenge of explainability in object detection systems. The medical domain presents unique requirements for AI interpretability, driven by regulatory demands, clinical decision-making needs, and the fundamental requirement for physician trust and acceptance. However, most existing explainability methods were developed for image classification tasks \cite{selvaraju2019gradcam,chattopadhay_2018gradcam++,draelos2021hirescam,jiang2021layercam}, where the goal is to explain a single prediction score for an entire image. Object detection fundamentally differs in that as it produces structured outputs consisting of multiple bounding boxes, each with associated class probabilities and confidence scores.
+Equally critical, yet often overlooked in the technical literature, is the challenge of explainability in object detection systems. The medical domain presents unique requirements for AI interpretability, driven by regulatory demands, clinical decision-making needs, and the fundamental requirement for physician trust and acceptance. However, most existing explainability methods were developed for image classification tasks \cite{chattopadhay_2018gradcam++,draelos2021hirescam,jiang2021layercam, selvaraju2019gradcam}, where the goal is to explain a single prediction score for an entire image. Object detection fundamentally differs in that as it produces structured outputs consisting of multiple bounding boxes, each with associated class probabilities and confidence scores.
 This structural difference creates significant technical obstacles for applying standard explainability techniques.
 
 \section{Research Questions and Objectives}
@@ -38,7 +38,7 @@ Implement and compare multiple object detection architectures and their variants
 Design preprocessing pipelines optimized for 2D slice-based analysis, including slice selection algorithms to maximize information content.
 Achieve detection performance that demonstrates clinical viability while operating within 16GB GPU memory constraints.
 
-\paragraph{O2: Adapt CAM methods for object detection tasks}
+\paragraph{O2: Adapt CAM methods for object detection tasks }
 
 Research and adapt CAM methods that can handle structured object detection outputs.
 Implement comparison algorithms that can assess similarity between structured predictions for explainability evaluation.
@@ -50,7 +50,7 @@ Extend the object detection pipeline with a classification head for detected reg
 Apply explainability methods to the detection components.
 
 \paragraph{O4: Provide comprehensive experimental validation}
-Evaluate the complete system on the established medical imaging datasets NLST \cite{nlst_data}, DLCSD24 \cite{tushar2025ailunghealthbenchmarking}.
+Evaluate the complete system on the established medical imaging datasets NLST \cite{nlst_data}, DLCSD24 \cite{dlcsd24, tushar2025ailunghealthbenchmarking}. 
 % Compare performance against relevant baselines and alternative approaches
 % Analyze computational efficiency and practical deployment considerations
 

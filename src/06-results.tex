@@ -61,7 +61,7 @@ It is important to contextualize this performance. While a mAP of 0.423 represen
 \section{Explainability Performance Analysis}
 %Discuss the performance of the explainability methods, comparing them based on the segmentation game, performing some statistical analysis on the results.
 
-To quantitatively evaluate and compare the faithfulness of the adapted explainability methods, the "Inverse Distance Game" (described in Section \ref{subsec:xai_evaluation}) was run on a test set of 819 samples. This section presents the performance of Eigen-CAM, Score-CAM, and Smoothed Score-CAM (SS-CAM), analyzing both their localization accuracy and their computational feasibility.
+To quantitatively evaluate and compare the faithfulness of the adapted explainability methods, the ``Inverse Distance Game" (described in Section \ref{subsec:xai_evaluation}) was run on a test set of 819 samples. This section presents the performance of Eigen-CAM, Score-CAM, and Smoothed Score-CAM (SS-CAM), analyzing both their localization accuracy and their computational feasibility.
 
 It is important to note a key aspect of the evaluation protocol: if the object detection model failed to produce any prediction for a given sample, the CAM methods that depend on a baseline output (Score-CAM and SS-CAM) could not be applied. In these cases of detection failure, a score of 0 was assigned to all methods to ensure a fair and consistent comparison across the entire test set. This does not happen for Eigen-CAM, due to its independence from the model's final output and its reliance solely on the feature maps.
 
