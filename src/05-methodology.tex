@@ -3,7 +3,7 @@
 \label{sec:arch_and_backbones}
 The core of our lung nodule detection pipeline is built upon a robust and well-established object detection framework. For this research, experiments will be conducted on the architectures discussed in the previous chapter: Faster R-CNN and RetinaNet.
 
-While these architectures defines the overall detection process, the quality of the features extracted from the input image is can impact its success. This feature extraction is performed by a deep convolutional neural network, commonly referred to as the backbone. The choice of backbone directly influences the model's performance, computational complexity, and memory footprint. A central component of our methodology is therefore to systematically evaluate the impact of different backbone architectures on the lung nodule detection task.
+While these architectures define the overall detection process, the quality of the features extracted from the input image can impact its success. This feature extraction is performed by a deep convolutional neural network, commonly referred to as the backbone. The choice of backbone directly influences the model's performance, computational complexity, and memory footprint. A central component of our methodology is therefore to systematically evaluate the impact of different backbone architectures on the lung nodule detection task.
 
 To investigate the trade-off between model performance and computational efficiency, we conducted experiments with three distinct backbone architectures, each representing a different design philosophy:
 
@@ -15,7 +15,7 @@ To investigate the trade-off between model performance and computational efficie
     \item \textbf{EfficientNetV2-S:} This model represents a modern approach to network design, seeking to optimally balance accuracy, training speed, and parameter efficiency. By systematically scaling network depth, width, and resolution, and employing novel architectural blocks, EfficientNetV2-S (with 21.4 million parameters) offers performance competitive with larger models while maintaining a smaller computational footprint.
 \end{itemize}
 
-In all experiments, each backbone was initialized with weights pre-trained on the ImageNet1k dataset. This transfer learning approach is a standard practice that leverages the rich, hierarchical features learned from a large-scale, general-purpose dataset to significantly improve performance and reduce training time on smaller, specialized datasets such as the one used in this study. 
+In all experiments, each backbone was initialized with weights pre-trained on the ImageNet1K dataset \cite{russakovsky2015imagenet}. This transfer learning approach is a standard practice that leverages the rich, hierarchical features learned from a large-scale, general-purpose dataset to significantly improve performance and reduce training time on smaller, specialized datasets such as the one used in this study. 
 
 \section{Model Architectures and Training Details}
 We mainly implemented two object detection architectures: Faster R-CNN and RetinaNet, both of which are widely used in the field. Each architecture was tested on several backbones, namely ResNet50, MobileNetV2, and EfficientNetV2S.
@@ -27,11 +27,11 @@ Each experiment used mixed precision training, which allows most computation to 
 This approach significantly reduces GPU memory usage and accelerates training without compromising model accuracy. The implementation of mixed precision training was provided by the \texttt{torch.cuda.amp} module, which automatically manages the scaling of gradients and the conversion between FP16 and FP32 as needed. 
 
 The following hyperparameters were kept constant for all experiments to ensure a fair comparison.
-Due to the pretrained nature of every experiment, the learning rate was set to a low value of $10^{-4}$ to avoid catastrophic forgetting, and the batch size was set to $8$ to fit the GPU memory constraints. The training was performed for a maximum of $30$ epochs, with early stopping based on the validation metrics to prevent overfitting and cut down on training time with a patience of $10$ epochs. For the same reason the validation set was used to monitor the training process and decided to run a validation step every $3$ epochs.
+Due to the pretrained nature of every experiment, the learning rate was set to a low value of $10^{-4}$ to avoid catastrophic forgetting, and the batch size was set to $8$ to fit the GPU memory constraints. The training was performed for a maximum of $30$ epochs, with early stopping based on the validation metrics to prevent overfitting and cut down on training time with a patience of $10$ epochs. For the same reason the validation set was used to monitor the training process. And to mitigate some computational time, it was decided to run a validation step every $3$ epochs.
 The optimzer used was AdamW, which is a variant of the Adam optimizer that decouples weight decay from the optimization step, providing better generalization performance in many cases \cite{loshchilov2019decoupled, kingma2017adam}.
 
 As for the scheduler used, we opted for a Cosine Annealing scheduler, which graduelly reduces the learning rate over the course of training, allowing for a more fine-tuned convergence towards the end of the training process. We also experimented with Cosine Annealing with Warm Restarts, which periodically resets the learning rate to a higher value, but it often led to failed training runs due to the mixed precision training induced instability, so we decided to stick with the simpler version.
-Lastly, for the DLCS dataset, the 3-channels contain the previous, current, and next slice of the analyzed nodule, allowing the model to have a better context of the nodule's surroundings, effectively simulating a 3D input while still using a 2D object detection architecture.
+Lastly, for the DLCS dataset, the 3-channels contain the previous, current, and next slice of the analyzed nodule, allowing the model to have a better context of the nodule's surroundings, effectively simulating a 3D input while still using a 2D object detection architecture. We will refer to this approach as 2.5D.
 
 The experiments were run using \texttt{parallel} to allow queuing multiple training runs on the same GPU, which is particularly useful for hyperparameter tuning and ablation studies. This approach allows us to efficiently utilize the available GPU and time resources.
 
@@ -85,7 +85,7 @@ To assess the optimal training approach for our challenging DLCS evaluation scen
 
 This comparison allows us to evaluate whether the progressive difficulty approach provides significant benefits in terms of detection performance over direct training on the more complex DLCS dataset. 
 
-The transfer learning strategy from NLST to DLCS tries to address the large domain gap between a CT dataset and ImageNet, where the latter is primarily focused on natural images. Nonetheless it is important to note that pretraining on ImageNet is often a standard practice in computer vision as it provides a strong initial feature representation, especially on the first layers of the network that tend to capture low-level features such as edges, textures, and basic shapes, all of which are easily transferable across different domains.
+The transfer learning strategy from NLST to DLCS tries to address the large domain gap between a CT dataset and ImageNet1K, where the latter is primarily focused on natural images. Nonetheless it is important to note that pretraining on ImageNet1K is often a standard practice in computer vision as it provides a strong initial feature representation, especially on the first layers of the network that tend to capture low-level features such as edges, textures, and basic shapes, all of which are easily transferable across different domains.
 
 
 \section{Object Detection Train-time Augmentations}
@@ -115,7 +115,7 @@ To synthesize the previously described components, this section outlines the com
 
     \item \textbf{Model Training.} The Faster R-CNN/RetinaNet model is trained on the prepared dataset. 
     \begin{itemize}
-        \item The impact of different backbone architectures (ResNet50, MobileNetV2, EfficientNetV2-S) is systematically evaluated (Section \ref{sec:arch_and_backbones}).
+        \item The impact of different backbone architectures (ResNet50, MobileNetV2, EfficientNetV2-S) is systematically evaluated
         \item The training process incorporates extensive online data augmentation (Section \ref{sec:augmentation}) to prevent overfitting and is guided by a consistent set of hyperparameters (AdamW optimizer, Cosine Annealing scheduler).
     \end{itemize}
 
@@ -130,11 +130,10 @@ To synthesize the previously described components, this section outlines the com
 \section{Classification Head Module}
 % Discuss the classification network, how we extracted a classification dataset from the detection dataset using the bounding boxes. 
 
-The classification head is a detached component that builds learns to classify individual lung nodules as benign or malignant.
+The classification head is a detached component that learns to classify individual lung nodules as benign or malignant.
 We decided to implement this as a separate model for several reasons:
-A separate classification head introduces both modularity and flexibility, since it can be developed, tested, and optimized independently of the detection model. This separation makes it easier to experiment with alternative architectures and hyperparameters without interfering with the detection component. At the same time, isolating the classification task allows for greater specialization. Unlike detection, classification comes with its own requirements and challenges; by decoupling the two, the architecture and training process can be tailored specifically to the subtleties of distinguishing between benign and malignant nodules.
-Finally, a separate classification head allows for a separate XAI analysis, allowing us to focus on explaining the classification decision independently of the detection process.
-
+a separate classification head introduces both modularity and flexibility, since it can be developed, tested, and optimized independently of the detection model. This separation makes it easier to experiment with alternative architectures and hyperparameters without interfering with the detection component. At the same time, isolating the classification task allows for greater specialization. Unlike detection, classification comes with its own requirements and challenges; by decoupling the two, the architecture and training process can be tailored specifically to the subtleties of distinguishing between benign and malignant nodules.
+Finally, a separate classification head allows for a more efficient use of computational resources and personalized training strategies.
 \subsection{Models and Training Procedure}
 Since each data sample at our disposal inherently provides low information due to its small size, we opted for lightweight architectures to mitigate overfitting risks.
 Specifically we experimented with:
@@ -175,9 +174,9 @@ To each of these architectures, we appended a custom classification head describ
     \label{tab:classification-head}
 \end{table}
     
-All models were initialized with weights pre-trained on ImageNet1k and fine-tuned on our lung nodule classification dataset. The training process utilized the Adam optimizer \cite{kingma2017adam} with a learning rate of $1e^{-4}$, a batch size of 8, and a harsh weight decay of $1e^{-3}$. A cosine annealing learning rate scheduler was employed to adjust the learning rate dynamically during training. The Focal Loss function was used to guide the optimization process, reflecting the binary nature of the classification task.
+All models were initialized with weights pre-trained on ImageNet1K and fine-tuned on our lung nodule classification dataset. The training process utilized the Adam optimizer \cite{kingma2017adam} with a learning rate of $10^{-4}$, a batch size of 8, and a harsh weight decay of $10^{-3}$. A cosine annealing learning rate scheduler was employed to adjust the learning rate dynamically during training. The Focal Loss function was used to guide the optimization process, reflecting the binary nature of the classification task.
 
-\section{Classification's Train-time Augmentations}
+\section{Classification Train-time Augmentations}
 To enhance the robustness and generalization capabilities of our classification models, we applied a series of data augmentations during training. These augmentations are designed to simulate the variability encountered in real-world clinical settings, thereby reducing overfitting and improving the model's ability to generalize to unseen data. The specific augmentations applied are as follows:
 \begin{itemize}
     \item \textbf{Horizontal \& Vertical Flips}: Each image has a 50\% chance of being flipped horizontally and a 50\% chance of being flipped vertically. This augmentation helps the model learn invariance to orientation, which is particularly relevant in medical imaging where anatomical structures can appear in various orientations.

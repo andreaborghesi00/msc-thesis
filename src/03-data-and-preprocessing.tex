@@ -1,10 +1,10 @@
 \chapter{Data and Preprocessing}
 \label{chap:data-and-preprocessing}
 \section{Datasets: NLST and DLCSD24}
-The development and evaluation of computer-aided detection systems for pulmonary nodules heavily rely on comprehensive and diverse datasets. In this work, we leverage two distinct datasets: the National Lung Screening Trial (NLST) \cite{nlst_data} and the Duke Lung Cancer Screening Dataset 2024 (DLCSD24) \cite{dlcsd24}. Each dataset presents unique several slices/volumes of CT scans, annotated with pulmonary nodule locations, necessary for training and validating our detection models.
+The development and evaluation of computer-aided detection systems for pulmonary nodules heavily rely on comprehensive and diverse datasets. In this work, we leverage two distinct datasets: the National Lung Screening Trial (NLST) \cite{nlst_data} and the Duke Lung Cancer Screening Dataset 2024 (DLCSD24) \cite{dlcsd24}. Each dataset presents unique multiple slices/volumes of CT scans, annotated with pulmonary nodule locations, necessary for training and validating our detection models.
 
-Both datasets will serve as 2D datasets, meaning that each slice of the CT scan will be treated as a separate image. The slicing will be done along the axial plane, which is the most common orientation for viewing CT scans.
-The NLST dataset already comes as a collection of 2D slices on the axial plane, while the DLCSD24 dataset comes as a collection of 3D volumes that will need to be sliced along our desired plane, and possibly only a subset of slices of interest -- namely those containing nodules -- will be retained for training and evaluation.
+Both datasets will serve as 2D datasets, meaning that each slice of the CT scan will be treated as a separate image. The slicing will be done on axial planes of the patient, which is the most common orientation for viewing CT scans.
+The NLST dataset already comes as a collection of 2D slices on the axial plane, while the DLCSD24 dataset comes as a collection of 3D volumes that will have to be sliced, and possibly only a subset of slices of interest -- namely those containing nodules -- will be retained for training and evaluation.
 
 \subsection{National Lung Screening Trial (NLST)}
 The NLST is a large-scale, randomized controlled trial conducted by the National Cancer Institute (NCI) to determine if spiral computed tomography (CT) screening could reduce lung cancer mortality compared to standard chest X-ray. It enrolled over 53,000 participants at 33 sites across the United States. For the purpose of this study, the NLST dataset provides a vast collection of low-dose CT scans, which are invaluable for training nodule detection models.
@@ -206,7 +206,7 @@ In addition to this ablation study, we also conducted a negative control experim
 While a 2D slice-based approach offers significant computational advantages over a full 3D analysis, it inherently discards the volumetric context that is crucial for accurate nodule characterization. In a single 2D slice, a small pulmonary nodule can be morphologically indistinguishable from a cross-section of a blood vessel or other anatomical structures. Radiologists naturally scroll through adjacent slices to observe how a feature evolves in the third dimension (the z-axis) to make a confident diagnosis.
 
 To address this limitation without incurring the prohibitive memory and computational costs of full 3D convolutional networks, we adopt a multi-channel input representation, often referred to as a \textbf{2.5D approach}. This method synthesizes local volumetric information into a format that is directly compatible with standard 2D CNN architectures.
-The idea comes from the observation that the pretrain used from ImageNet is on RGB images, which have already have three channels, while CT scans are single channel grayscale images, so we can leverage this by stacking adjacent slices to create a three-channel input, rather than copying the same slice three times.
+The idea comes from the observation that the pretrain used from ImageNet1K is on RGB images \cite{russakovsky2015imagenet}, which have already have three channels, while CT scans are single channel grayscale images, so we can leverage this by stacking adjacent slices to create a three-channel input, rather than copying the same slice three times.
 
 For a given target slice at position $z$, which contains a nodule annotation, we construct a three-channel input tensor analogous to a standard RGB image. Instead of Red, Green, and Blue channels, the three channels are populated with grayscale intensity information from adjacent CT slices:
 
@@ -221,7 +221,7 @@ This technique offers several key advantages for our methodology:
 \begin{itemize}
     \item \textbf{Enhanced Feature Representation:} It provides the model with crucial, localized 3D context. By seeing the preceding and subsequent slices, the network can learn to discern the characteristic spherical shape of a nodule as it changes across slices, helping to differentiate it from elongated, tubular structures like blood vessels.
 
-    \item \textbf{Compatibility with Pre-trained Models:} It aligns perfectly with the three-channel input structure of the canonical backbone architectures used in this work (ResNet50, MobileNetV2, and EfficientNetV2-S). This allows for the direct and effective use of weights pre-trained on ImageNet, a dataset of three-channel RGB images, which is a cornerstone of modern transfer learning.
+    \item \textbf{Compatibility with Pre-trained Models:} It aligns perfectly with the three-channel input structure of the canonical backbone architectures used in this work (ResNet50, MobileNetV2, and EfficientNetV2-S). This allows for the direct and effective use of weights pre-trained on ImageNet1K \cite{russakovsky2015imagenet}, a dataset of three-channel RGB images, which is a cornerstone of modern transfer learning.
 
     \item \textbf{Computational Efficiency:} The approach processes three 2D slices at a time using standard 2D convolutions, thereby retaining the computational efficiency of a 2D pipeline. This avoids the exponential increase in parameters and memory usage associated with 3D convolutional layers, making the method accessible on commercial GPU hardware.
 \end{itemize}

@@ -8,7 +8,7 @@ This thesis undertook an investigation into the development of a computationally
 
 The primary motivation for this work was to address the challenges of high computational costs and the lack of transparency in AI models for medical imaging. The research was guided by two central questions, which this thesis has successfully addressed.
 
-\paragraph{RQ1: How can 2D object detection approaches achieve clinically relevant performance for lung nodule detection within computational constraints?}
+\paragraph{RQ1: How can 2D object detection approaches achieve clinically relevant performances for lung nodule detection within computational constraints?}
 This question was addressed through the systematic development and evaluation of a complete 2.5D detection pipeline. The results demonstrate that by combining a lightweight Faster R-CNN architecture with an efficient backbone like EfficientNetV2s, it is possible to achieve a strong performance baseline. Key methodological contributions that enabled this include:
 \begin{itemize}
     \item The successful implementation of a 2.5D input representation, which incorporates local volumetric context into a 2D framework, significantly improving performance over single-slice approaches.
@@ -20,12 +20,12 @@ While the final performance is not yet at a level for autonomous clinical deploy
 This question was addressed by focusing on gradient-free CAM techniques to circumvent the non-differentiable operations in the Faster R-CNN pipeline. The core contribution was the development of the \texttt{FasterRCNNBoxScoreTarget} function, a novel similarity metric designed to replace the mathematically undefined subtraction operation in the Score-CAM and SS-CAM algorithms. This adaptation provides a robust and principled methodology for applying these powerful, class-discriminative XAI techniques to object detectors.\\
 
 
-The subsequent quantitative evaluation, conducted using the Inverse Distance Game, yielded a clear result. The experiments revealed that Eigen-CAM produced the most faithful explanations, achieving a mean score of 0.90, significantly higher than the 0.79 scores of both Score-CAM and SS-CAM. Furthermore, this superior localization performance was achieved with orders of magnitude greater computational efficiency, making Eigen-CAM the only method suitable for practical, near-real-time application. This finding suggests that for a well-trained, single-class detector, the class-agnostic simplicity of Eigen-CAM is more effective and vastly more practical than the more complex, adapted class-discriminative methods.
+The subsequent quantitative evaluation, conducted using the Inverse Distance Game, yielded a clear result. The experiments revealed that Eigen-CAM produced the most faithful explanations, achieving a mean score of 0.900, significantly higher than the 0.785 and 0.792 scores of both Score-CAM and SS-CAM as proved by the t-paired test. Furthermore, this superior localization performance was achieved with orders of magnitude greater computational efficiency, making Eigen-CAM the only method suitable for practical, near real-time applications. This finding suggests that for a well-trained, single-class detector, the class-agnostic simplicity of Eigen-CAM is more effective and vastly more practical than the more complex, adapted class-discriminative methods.
 
 \section{Limitations of the Study}
 \label{sec:limitations}
 
-It is important to acknowledge the limitations of this research. The primary limitation is the inherent trade-off of the 2.5D approach; while efficient, it does not capture the full, long-range volumetric context that a true 3D model could leverage. Secondly, the models were trained and evaluated primarily on the DLCSD24 dataset, and their generalization performance on data from different institutions or CT scanners remains to be tested. Finally, as discussed in Chapter 5, the performance of the classification module, while establishing a valuable baseline, requires further improvement before it could be considered clinically robust.
+The primary limitation is the inherent trade-off of the 2.5D approach; while efficient, it does not capture the full, long-range volumetric context that a true 3D model could leverage. Secondly, the models were trained and evaluated primarily on the DLCSD24 dataset, and their generalization performance on data from different institutions or CT scanners remains to be tested. Finally, as discussed in Chapter 5, the performance of the classification module, while establishing a valuable baseline, requires further improvement before it could be considered clinically robust.
 
 \section{Future Directions}
 \label{sec:future_directions}
