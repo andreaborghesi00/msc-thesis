@@ -7,54 +7,54 @@
 To quantitatively assess the performance of our models and the viability of the proposed training strategies, we evaluated each model configuration using the mean Average Precision (mAP) metric, a standard for object detection tasks. We report mAP at an Intersection over Union (IoU) threshold of 0.50 (mAP@50), which is a common benchmark, as well as the average mAP over IoU thresholds from 0.50 to 0.95 in steps of 0.05 (mAP@50:95) to provide a more comprehensive assessment of localization accuracy. Additionally, we include mAP at a lower IoU of 0.10 (mAP@10) to gauge the models' ability to detect nodules even with less precise bounding boxes.
 
 \subsubsection{NLST Pretraining Results}
-First, we present the results of the models trained on the NLST dataset, which served as a pretraining step before fine-tuning on the DLCS dataset.
+First, we present the results of the models trained on the NLST dataset, which served as a pretraining step before fine-tuning on the DLCSD24.
 As mentioned in the previous section, these models are pretrained on the ImageNet1K dataset, a training from scratch approach would have needed a much larger dataset to achieve comparable results, so we decided to use these weights as a starting point.
 The results of the models trained on the NLST dataset are shown in Table \ref{tab:nlst-models}.
 
 \input{tables/nlst-models.tex}
 
 Surprisingly, the RetinaNet architecture is comparable and, although not statistically significantly better, it presents slightly higher AP metrics compared to Faster R-CNN with the same backbone.
-We will see later that this trend is reversed when the models are trained on the DLCS dataset, and from this one might infer that this is due to the difference in difficulty of the datasets, with NLST being easier to detect, we might say that a simpler architecture is sufficient to achieve good results, and that the more complex Faster R-CNN is not able to extract more information from the data.
+We will see later that this trend is reversed when the models are trained on the DLCSD24, and from this one might infer that this is due to the difference in difficulty of the datasets, with NLST being easier to detect, we might say that a simpler architecture is sufficient to achieve good results, and that the more complex Faster R-CNN is not able to extract more information from the data.
 
 If we were to compare the results of the other backbones, we can see that the EfficientNetV2S backbone performs the best overall, with the MobileNet backbone beign the second best regardless of its extremely low number of parameters.
 
 This results are also aiming to show that although many architectures are shipped with ResNet50 as a backbone, it is not the best choice for every task, especially when there are available more efficient and effective backbones that already exploit residual connections and other techniques to improve performance.
 
-\subsubsection{DLCS Direct Training Results}
-Next, we evaluated the models on the more clinically realistic and challenging DLCS dataset. The models were again initialized with ImageNet1K weights and trained directly on DLCS. This experiment was designed to quantify the difficulty of detecting the smaller, more subtle nodules characteristic of this dataset without the aid of domain-specific pretraining. The results are shown in Table \ref{tab:dlcs-models-not-pretrained}.
+\subsubsection{DLCSD24 Direct Training Results}
+Next, we evaluated the models on the more clinically realistic and challenging DLCSD24. The models were again initialized with ImageNet1K weights and trained directly on DLCSD24. This experiment was designed to quantify the difficulty of detecting the smaller, more subtle nodules characteristic of this dataset without the aid of domain-specific pretraining. The results are shown in Table \ref{tab:dlcs-models-not-pretrained}.
 
 \input{tables/dlcs-models-not-pretrained.tex}
 
-As expected, the performance of the models on the DLCS dataset is significantly lower than on the NLST dataset, reflecting the increased difficulty. As previously announced, now the Faster R-CNN architecture outperforms RetinaNet with EfficientNetV2S and ResNet50 backbones, while the MobileNet still performs better on with the RetinaNet architecture, making it a good candidate for lower-end devices.
+As expected, the performance of the models on DLCSD24 is significantly lower than on the NLST dataset, reflecting the increased difficulty. As previously announced, now the Faster R-CNN architecture outperforms RetinaNet with EfficientNetV2S and ResNet50 backbones, while the MobileNet still performs better on with the RetinaNet architecture, making it a good candidate for lower-end devices.
 The best performing model is the Faster R-CNN with EfficientNetV2S backbone, achieving an overall mAP@50:95 of 0.423, that is still not enough to be clinically useful, although its map@10 of 0.745 shows how it might be used as a screening tool, and that it performs its performance lowers quickly as the IoU threshold increases, which is a common issue with object detection models.
 
-\subsubsection{DLCS Pretrained Results}
-Finally, we evaluated the models pretrained on the NLST dataset and then fine-tuned on the DLCS dataset. This approach aims to leverage the larger, more visually distinct nodules in NLST to provide a strong initial feature representation for the more challenging nodules in DLCS, similar to a shallow curriculm learning approach.
-The results of the models pretrained, first on ImageNet1K, then on NLST, and finally fine-tuned on DLCS are shown in Table \ref{tab:dlcs-models-pretrained}.
+\subsubsection{DLCSD24 Pretrained Results}
+Finally, we evaluated the models pretrained on the NLST dataset and then fine-tuned on DLCSD24. This approach aims to leverage the larger, more visually distinct nodules in NLST to provide a strong initial feature representation for the more challenging nodules in DLCSD24, similar to a shallow curriculm learning approach.
+The results of the models pretrained, first on ImageNet1K, then on NLST, and finally fine-tuned on DLCSD24 are shown in Table \ref{tab:dlcs-models-pretrained}.
 
 \input{tables/dlcs-models-pretrained.tex}
 
-Unfortunately, the results of this fine-tuning approach are slightly worse than the direct training on DLCS with the ImageNet1K weights. Although for the best performing model this difference is not statistically significant, it is still a disappointing result.
+Unfortunately, the results of this fine-tuning approach are slightly worse than the direct training on DLCSD24 with the ImageNet1K weights. Although for the best performing model this difference is not statistically significant, it is still a disappointing result.
 This might be due to the fact that the NLST dataset is not large enough. Which is a common issue when fine-tuning on a small dataset, as the model might forget useful general features learned from the ImageNet1K dataset.
-We tried to prevent this by using a low learning rate and freezing some of the layers, but it is still a possibility that the model overfitted to the NLST dataset, which is not diverse enough to cover all the cases present in DLCS.
+We tried to prevent this by using a low learning rate and freezing some of the layers, but it is still a possibility that the model overfitted to the NLST dataset, which is not diverse enough to cover all the cases present in DLCSD24.
 On a different note we can see that in this experimental setup the Faster R-CNN performs bettern than RetinaNet on every backbone, with the EfficientNetV2S backbone still being the best performing one.
 
 \subsubsection{Discussion}
 
-The collective results from the NLST pretraining, direct DLCS training, and fine-tuning experiments provide a comprehensive view of the models' capabilities and reveal several key insights into the challenges of lightweight lung nodule detection.
+The collective results from the NLST pretraining, direct DLCSD24 training, and fine-tuning experiments provide a comprehensive view of the models' capabilities and reveal several key insights into the challenges of lightweight lung nodule detection.
 
 \paragraph{The Superiority of Faster R-CNN on Complex Data.}
 A clear and consistent trend emerges when comparing the model architectures across the two datasets. On the simpler NLST dataset, which features larger and more distinct nodules, the lightweight, one-stage RetinaNet performed comparably or even slightly better than the more complex two-stage Faster R-CNN. This suggests that for less challenging detection tasks, the additional architectural complexity of Faster R-CNN provides no significant advantage in performance, while introducing more computational overhead.
 
-However, this trend completely reverses on the more clinically realistic and difficult DLCS dataset. On this more challenging data, Faster R-CNN consistently and significantly outperforms RetinaNet across all backbone configurations (with the exception of MobileNetV2). This finding strongly suggests that the two-stage approach—with its dedicated Region Proposal Network and second-stage refinement—is better equipped to handle the subtleties and lower signal-to-noise ratio inherent in detecting small, indistinct nodules. It is the more robust and suitable architecture for this specific clinical problem.
+However, this trend completely reverses on the more clinically realistic and difficult DLCSD24. On this more challenging data, Faster R-CNN consistently and significantly outperforms RetinaNet across all backbone configurations (with the exception of MobileNetV2). This finding strongly suggests that the two-stage approach—with its dedicated Region Proposal Network and second-stage refinement—is better equipped to handle the subtleties and lower signal-to-noise ratio inherent in detecting small, indistinct nodules. It is the more robust and suitable architecture for this specific clinical problem.
 
 \paragraph{The Failure of Domain-Specific Pretraining.}
-One of the most surprising outcomes was the ineffectiveness of the pretraining strategy on the NLST dataset. The hypothesis was that pretraining on a large dataset of easier-to-detect nodules would provide a strong, domain-specific feature representation that would boost performance on the more difficult DLCS dataset. The results, however, show the opposite: direct training on DLCS with ImageNet1K weights yielded slightly better performance than fine-tuning from NLST weights.
+One of the most surprising outcomes was the ineffectiveness of the pretraining strategy on the NLST dataset. The hypothesis was that pretraining on a large dataset of easier-to-detect nodules would provide a strong, domain-specific feature representation that would boost performance on the more difficult DLCSD24. The results, however, show the opposite: direct training on DLCSD24 with ImageNet1K weights yielded slightly better performance than fine-tuning from NLST weights.
 
-This counter-intuitive result is likely attributable to the domain-shift phenomenon and the risk of catastrophic forgetting. The NLST dataset may not be diverse enough or its nodules representative enough of the subtle cases in DLCS. Fine-tuning on a small, complex dataset like DLCS after pretraining on NLST may cause the model to forget the more general and robust low-level features learned from the vast ImageNet1K dataset. The slight negative impact on performance suggests that, for this specific task, the general-purpose features from ImageNet1K are more valuable than the specialized features from NLST.
+This counter-intuitive result is likely attributable to the domain-shift phenomenon and the risk of catastrophic forgetting. The NLST dataset may not be diverse enough or its nodules representative enough of the subtle cases in DLCSD24. Fine-tuning on a small, complex dataset like DLCSD24 after pretraining on NLST may cause the model to forget the more general and robust low-level features learned from the vast ImageNet1K dataset. The slight negative impact on performance suggests that, for this specific task, the general-purpose features from ImageNet1K are more valuable than the specialized features from NLST.
 
 \paragraph{The Optimal Model Configuration.}
-Synthesizing these findings, the best performing model configuration for this task is the Faster R-CNN architecture paired with the EfficientNetV2-S backbone, trained directly on the DLCS dataset using ImageNet1K pre-trained weights. This configuration achieved the highest overall mAP@5:95 of 0.423.
+Synthesizing these findings, the best performing model configuration for this task is the Faster R-CNN architecture paired with the EfficientNetV2-S backbone, trained directly on DLCSD24 using ImageNet1K pre-trained weights. This configuration achieved the highest overall mAP@5:95 of 0.423.
 
 It is important to contextualize this performance. While a mAP of 0.423 represents a strong academic baseline and validates the viability of the lightweight 2.5D approach, it is not yet sufficient for fully autonomous clinical deployment. However, the high mAP@10 score of 0.745 indicates that the model is effective at identifying the general location of potential nodules, suggesting its immediate promise as a ``second reader" or screening tool to draw a radiologist's attention to suspicious areas, which can then be confirmed by expert review. The performance drop at higher IoU thresholds is a well-known characteristic of object detection on small objects and highlights the remaining challenge in achieving perfect localization.
 
